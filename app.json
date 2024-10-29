@@ -1,0 +1,65 @@
+{
+  "expo": {
+    "name": "SAS Field Service Mobility",
+    "slug": "SAS-FSM",
+    "version": "1.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/images/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#584CF4"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "infoPlist": {
+        "UIBackgroundModes": ["location", "fetch"],
+        "NSLocationWhenInUseUsageDescription": "This app needs access to location to provide navigation.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs access to location to provide navigation even when in background.",
+        "NSLocationAlwaysUsageDescription": "This app needs access to location to provide navigation even when in background."
+      },
+      "config": {
+        "googleMapsApiKey": "AIzaSyAqKCJbvo1YUX4wKMXkpLYe0Bglfxxto_g"
+      },
+      "supportsTablet": true
+    },
+    "android": {
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION"
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#584CF4"
+      },
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyAqKCJbvo1YUX4wKMXkpLYe0Bglfxxto_g"
+        }
+      }
+    },
+    "web": {
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-font",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you share them with your customers.",
+          "cameraPermission": "The app accesses your camera to let you take photos of your work."
+        }
+      ]
+    ]
+  }
+}
