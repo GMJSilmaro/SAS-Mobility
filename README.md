@@ -5,7 +5,7 @@ SAS-Mobility Field Service App is a comprehensive mobile application designed to
 
 ![App Status](https://img.shields.io/badge/Status-In%20Development-yellow)
 ![Version](https://img.shields.io/badge/Version-1.1.0-blue)
-![License](https://img.shields.io/badge/License-MIT-green)
+![License](https://img.shields.io/badge/License-Proprietary-red)
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)
 ![Node.js](https://img.shields.io/badge/Node.js-14+-success)
 ![React Native](https://img.shields.io/badge/React%20Native-Latest-blue)
@@ -46,30 +46,6 @@ SAS-Mobility Field Service App is a comprehensive mobile application designed to
 - **API**: REST/GraphQL
 - **Authentication**: Firebase Authentication
 
-## ⚙️ Installation
-
-1. Clone the repository:
-```bash
-git clone https://github.com/your-username/sas-mobility.git
-```
-
-2. Install dependencies:
-```bash
-cd sas-mobility
-npm install
-```
-
-3. Configure environment variables:
-```bash
-cp .env.example .env
-# Edit .env with your configuration
-```
-
-4. Start the development server:
-```bash
-npm start
-```
-
 ## 🔑 Environment Variables
 
 ```env
@@ -86,22 +62,11 @@ FIREBASE_APP_ID=your_firebase_app_id
 FIREBASE_MEASUREMENT_ID=your_firebase_measurement_id
 
 ```
-
-## 📚 API Documentation
-
-COMING SOON!
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
+This software is proprietary and confidential. Unauthorized copying, modification, distribution, or use of this software, via any medium, is strictly prohibited. This software is owned by Pixel Care Consulting and licensed exclusively to SAS-Mobility.
+
+All rights reserved © 2024 Pixel Care Consulting.
 
 ## 📞 Support
 
