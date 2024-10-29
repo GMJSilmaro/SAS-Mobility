@@ -4,7 +4,7 @@
 SAS-Mobility Field Service App is a comprehensive mobile application designed to empower field service technicians with tools and features needed for efficient service delivery and task management.
 
 ![App Status](https://img.shields.io/badge/Status-In%20Development-yellow)
-![Version](https://img.shields.io/badge/Version-1.0.0-blue)
+![Version](https://img.shields.io/badge/Version-1.1.0-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)
 ![Node.js](https://img.shields.io/badge/Node.js-14+-success)
