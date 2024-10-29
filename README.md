@@ -1,7 +1,7 @@
-# SAS-Mobility Field Service App
+# SAS&ME Mobility Field Service
 
 ## Overview
-SAS-Mobility Field Service App is a comprehensive mobile application designed to empower field service technicians with tools and features needed for efficient service delivery and task management.
+SAS&ME Mobility Field Service App is a comprehensive mobile application designed to empower field service technicians with tools and features needed for efficient service delivery and task management.
 
 ![App Status](https://img.shields.io/badge/Status-In%20Development-yellow)
 ![Version](https://img.shields.io/badge/Version-1.1.0-blue)
@@ -64,7 +64,7 @@ FIREBASE_MEASUREMENT_ID=your_firebase_measurement_id
 ```
 ## 📄 License
 
-This software is proprietary and confidential. Unauthorized copying, modification, distribution, or use of this software, via any medium, is strictly prohibited. This software is owned by Pixel Care Consulting and licensed exclusively to SAS-Mobility.
+This software is proprietary and confidential. Unauthorized copying, modification, distribution, or use of this software, via any medium, is strictly prohibited. This software is owned by Pixel Care Consulting and licensed exclusively to SAS&ME.
 
 All rights reserved © 2024 Pixel Care Consulting.
 
