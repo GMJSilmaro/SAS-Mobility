@@ -72,6 +72,11 @@ import NavigateMap from '../screens/NavigateMap'
 import ServiceWork from '../screens/ServiceWork'
 import Completion from '../screens/Completion'
 import SignatureScreen from '../screens/SignatureScreen'
+import TasksScreen from '../screens/TasksScreen';
+import EquipmentScreen from '../screens/EquipmentScreen';
+import PhotosScreen from '../screens/PhotosScreen';
+import TechnicianSignature from '../screens/TechnicianSignature'
+import CustomerSignature from '../screens/CustomerSignature'
 
 const Stack = createNativeStackNavigator()
 
@@ -249,6 +254,15 @@ const AppNavigation = () => {
                 <Stack.Screen name="ServiceWork" component={ServiceWork} />
                 <Stack.Screen name="Completion" component={Completion} />
                 <Stack.Screen name="SignatureScreen" component={SignatureScreen} />
+                <Stack.Screen 
+                name="Tasks" 
+                component={TasksScreen}
+                options={{ headerShown: false }}
+                />
+                <Stack.Screen name="Equipment" component={EquipmentScreen} />
+                <Stack.Screen name="Photos" component={PhotosScreen} />
+                <Stack.Screen name="TechnicianSignature" component={TechnicianSignature} />
+                <Stack.Screen name="CustomerSignature" component={CustomerSignature} />
             </Stack.Navigator>
         </NavigationContainer>
     )

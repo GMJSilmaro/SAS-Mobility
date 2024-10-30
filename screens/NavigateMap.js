@@ -1,18 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Dimensions, Linking, Alert, PermissionsAndroid } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Dimensions, Linking, Alert, PermissionsAndroid, Animated, ScrollView, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import MapView, { Marker, Callout, Circle, PROVIDER_GOOGLE, Polyline } from 'react-native-maps';
 import * as Location from 'expo-location';
 import * as Network from 'expo-network';
 import { MaterialIcons } from '@expo/vector-icons'; // Import icons
-import Animated, { 
-  useAnimatedGestureHandler,
-  useAnimatedStyle,
-  withSpring,
-  useSharedValue,
-  runOnJS
-} from 'react-native-reanimated';
-import { PanGestureHandler } from 'react-native-gesture-handler';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 
 // Constants
 const GEOFENCE_RADIUS = 100; // meters
@@ -157,39 +151,65 @@ const calculateInitialRoute = (start, end) => {
 };
 
 const NavigateMap = ({ navigation, route }) => {
-  // Add validation check
-  React.useEffect(() => {
-    if (!route?.params?.location) {
-      Alert.alert(
-        'Error',
-        'Missing location information',
-        [
-          {
-            text: 'Go Back',
-            onPress: () => navigation.goBack()
-          }
-        ]
-      );
-    }
-  }, []);
+  // Add state for job data
+  const [jobData, setJobData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  
+  // Add useEffect to fetch job data
+  useEffect(() => {
+    console.log('NavigateMap - Received Params:', {
+      jobNo: route?.params?.jobNo,
+      workerId: route?.params?.workerId
+    });
 
-  // Add default/fallback values
+    const fetchJobData = async () => {
+      try {
+        if (!route?.params?.jobNo) {
+          throw new Error('Job number is required');
+        }
+
+        const jobRef = doc(db, 'jobs', route.params.jobNo);
+        const jobSnap = await getDoc(jobRef);
+
+        if (!jobSnap.exists()) {
+          throw new Error('Job not found');
+        }
+
+        const data = jobSnap.data();
+        console.log('Fetched job data:', data);
+        setJobData(data);
+      } catch (error) {
+        console.error('Error fetching job data:', error);
+        Alert.alert('Error', 'Failed to load job details');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchJobData();
+  }, [route?.params?.jobNo]);
+
+  // Update the default/fallback values to use jobData
   const {
     location = {
       coordinates: {
-        latitude: 1.3546,
-        longitude: 103.9450
+        latitude: jobData?.location?.coordinates?.latitude || 1.3069676,
+        longitude: jobData?.location?.coordinates?.longitude || 103.8212575
       },
       address: {
-        streetAddress: '',
-        city: '',
-        postalCode: ''
+        streetAddress: jobData?.location?.address?.streetAddress || '19 NASSIM HILL SITE OFFICE',
+        city: jobData?.location?.address?.city || '',
+        postalCode: jobData?.location?.address?.postalCode || ''
       }
     },
-    locationName = 'Destination',
-    customerName = '',
-    jobNo = '',
-    workerId = ''
+    locationName = jobData?.locationName || '19 NASSIM SITE OFFICE',
+    customerName = jobData?.customerName || 'C000001 - 19 NASSIM PROJECT',
+    jobNo = jobData?.jobNo || '000013',
+    contact = jobData?.contact || {
+      contactFullname: 'Jayson Butler',
+      mobilePhone: '809483',
+      phoneNumber: '098287374837'
+    }
   } = route?.params || {};
 
   const [visitedStages, setVisitedStages] = useState([0, 1]);
@@ -204,6 +224,7 @@ const NavigateMap = ({ navigation, route }) => {
   const [currentPointIndex, setCurrentPointIndex] = useState(0);
   const [initialRouteInfo, setInitialRouteInfo] = useState(null);
   const [showDetails, setShowDetails] = useState(true);
+  const [showRouteInfo, setShowRouteInfo] = useState(true);
   
   const mapViewRef = useRef(null);
 
@@ -469,16 +490,15 @@ const startNavigation = async () => {
   // Stage navigation handler
   const handleStagePress = (index) => {
     if (visitedStages.includes(index)) {
-      if (stages[index].screen === 'ServiceTaskDetails') {
-        navigation.navigate('ServiceTaskDetails', {
-          jobNo: jobNo,
-          workerId: workerId
-        });
-      } else if (stages[index].screen === 'ServiceWork' && hasArrived) {
-        navigation.navigate('ServiceWork');
-      } else {
-        navigation.navigate(stages[index].screen);
-      }
+      const navigationParams = {
+        jobNo: route?.params?.jobNo,
+        workerId: route?.params?.workerId,
+        location: route?.params?.location,
+        locationName: route?.params?.locationName,
+        customerName: route?.params?.customerName
+      };
+
+      navigation.navigate(stages[index].screen, navigationParams);
     }
   };
 
@@ -487,7 +507,7 @@ const startNavigation = async () => {
     { icon: 'check-circle', name: 'Details', screen: 'ServiceTaskDetails' },
     { icon: 'directions-car', name: 'Navigate', screen: 'NavigateMap' },
     { icon: 'build', name: 'Service', screen: 'ServiceWork' },
-    { icon: 'assignment-turned-in', name: 'Complete', screen: 'Completion' },
+    { icon: 'assignment-turned-in', name: 'Complete', screen: 'Completion' }
   ];
 
   const currentStage = 1;
@@ -503,36 +523,23 @@ const startNavigation = async () => {
     }
   }, [currentLocation, destinationCoords]);
 
-  // Add these constants and states
-  const EXPANDED_HEIGHT = 280; // Adjust based on your content
-  const COLLAPSED_HEIGHT = 100;
-  const translationY = useSharedValue(0);
-  const [isExpanded, setIsExpanded] = useState(true);
+  // Update the callCustomer function to use jobData
+  const callCustomer = () => {
+    const phoneNumber = `tel:${jobData?.contact?.phoneNumber || jobData?.contact?.mobilePhone}`;
+    Linking.openURL(phoneNumber).catch(err => console.error('Error calling customer:', err));
+  };
 
-  // Add this gesture handler
-  const gestureHandler = useAnimatedGestureHandler({
-    onStart: (_, ctx) => {
-      ctx.startY = translationY.value;
-    },
-    onActive: (event, ctx) => {
-      const newValue = ctx.startY + event.translationY;
-      translationY.value = Math.min(EXPANDED_HEIGHT - COLLAPSED_HEIGHT, 
-                                  Math.max(0, newValue));
-    },
-    onEnd: (event) => {
-      const shouldExpand = event.velocityY < 0 || translationY.value < (EXPANDED_HEIGHT - COLLAPSED_HEIGHT) / 2;
-      translationY.value = withSpring(
-        shouldExpand ? 0 : EXPANDED_HEIGHT - COLLAPSED_HEIGHT,
-        { damping: 15 }
-      );
-      runOnJS(setIsExpanded)(shouldExpand);
-    },
-  });
-
-  // Add this animated style
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translationY.value }],
-  }));
+  // Add loading indicator
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4a90e2" />
+          <Text style={styles.loadingText}>Fetching Map Location details...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -542,24 +549,21 @@ const startNavigation = async () => {
           onPress={() => navigation.goBack()}
           style={styles.headerButton}
         >
-          <Icon name="arrow-back" size={24} color="#fff" />
+          <Icon name="arrow-back-ios" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Navigate to Location</Text>
         <TouchableOpacity style={styles.headerButton}>
-          <Icon name="more-vert" size={24} color="#fff" />
+          <Icon name="more-horiz" size={24} color="#fff" />
         </TouchableOpacity>
       </View>
 
-      {/* Progress Stages */}
+      {/* Progress Icons */}
       <View style={styles.progressContainer}>
         {stages.map((stage, index) => (
           <React.Fragment key={stage.name}>
             <TouchableOpacity 
               onPress={() => handleStagePress(index)}
-              style={[
-                styles.stageButton,
-                { opacity: visitedStages.includes(index) ? 1 : 0.5 }
-              ]}
+              style={styles.stageButton}
             >
               <Icon 
                 name={stage.icon} 
@@ -576,14 +580,14 @@ const startNavigation = async () => {
             {index < stages.length - 1 && (
               <View style={[
                 styles.progressLine,
-                { backgroundColor: index < currentStage ? '#4a90e2' : '#ccc' }
+                { backgroundColor: visitedStages.includes(index + 1) ? '#4a90e2' : '#ccc' }
               ]} />
             )}
           </React.Fragment>
         ))}
       </View>
 
-      {/* Map */}
+      {/* Map Container with Overlaid Route Info */}
       <View style={styles.mapContainer}>
         <MapView
           ref={mapViewRef}
@@ -645,76 +649,79 @@ const startNavigation = async () => {
             />
           )}
         </MapView>
+
       </View>
 
-      <PanGestureHandler onGestureEvent={gestureHandler}>
-        <Animated.View style={[styles.locationDetails, animatedStyle]}>
-          <View style={styles.dragHandle} />
-          
-          {isExpanded && routeInfo && (
-            <View style={styles.routeInfo}>
-              {/* Estimated Time Section */}
-              <View style={styles.routeInfoItem}>
-                <View style={styles.routeInfoContent}>
-                  <Text style={styles.routeInfoTitle}>Estimated Time</Text>
-                  <View style={styles.routeInfoValueContainer}>
-                    <Icon name="access-time" size={16} color="#4a90e2" />
-                    <Text style={styles.routeInfoValue}>{routeInfo.duration}</Text>
-                  </View>
-                  <Text style={styles.routeInfoDescription}>
-                    Arrival at {initialRouteInfo?.eta || 'calculating...'}
-                  </Text>
-                </View>
-              </View>
+        {/* Bottom Details Panel */}
+        <View style={styles.bottomDetailsContainer}>
+          {/* Journey Information */}
+          <View style={styles.routeInfoContainer}>
+            <View style={styles.routeInfoCard}>
+              <Icon name="schedule" size={20} color="#4a90e2" />
+              <Text style={styles.routeInfoValue}>
+                {routeInfo?.duration || 'N/A'}
+              </Text>
+              <Text style={styles.routeInfoLabel}>ETA</Text>
+            </View>
+            <View style={styles.routeInfoDivider} />
+            <View style={styles.routeInfoCard}>
+              <Icon name="directions-car" size={20} color="#4a90e2" />
+              <Text style={styles.routeInfoValue}>
+                {routeInfo?.distance || 'N/A'}
+              </Text>
+              <Text style={styles.routeInfoLabel}>Distance</Text>
+            </View>
+          </View>
 
-              <View style={styles.routeInfoDivider} />
-
-              {/* Distance Section */}
-              <View style={styles.routeInfoItem}>
-                <View style={styles.routeInfoContent}>
-                  <Text style={styles.routeInfoTitle}>Distance</Text>
-                  <View style={styles.routeInfoValueContainer}>
-                    <Icon name="straighten" size={16} color="#4a90e2" />
-                    <Text style={styles.routeInfoValue}>{routeInfo.distance}</Text>
-                  </View>
-                  <Text style={styles.routeInfoDescription}>
-                    Via fastest route
-                  </Text>
-                </View>
+          {/* Customer & Location Info */}
+          <View style={styles.infoContainer}>
+            <View style={styles.infoRow}>
+              <Icon name="person" size={20} color="#4a90e2" />
+              <View style={styles.infoContent}>
+                <Text style={styles.infoTitle}>
+                  {jobData?.contact?.contactFullname || 'No Name'}
+                </Text>
+                <Text style={styles.infoSubtitle}>
+                  {jobData?.contact?.phoneNumber || jobData?.contact?.mobilePhone || 'No Phone'}
+                </Text>
               </View>
             </View>
-          )}
-
-          <View style={styles.locationHeader}>
-            <Icon name="location-on" size={24} color="#4a90e2" />
-            <View style={styles.locationTextContainer}>
-              <Text style={styles.locationTitle}>{locationName}</Text>
-              <Text numberOfLines={isExpanded ? undefined : 1} style={styles.locationAddress}>
-                {location?.address?.streetAddress}, {location?.address?.city}, {location?.address?.postalCode}
+            <View style={styles.infoDivider} />
+            <View style={styles.infoRow}>
+              <Icon name="location-on" size={20} color="#4a90e2" />
+              <Text style={styles.infoTitle} numberOfLines={1}>
+                {jobData?.location?.address?.streetAddress || 'No Address'}
               </Text>
             </View>
           </View>
 
-          {isExpanded && (
-            <View style={styles.actionButtons}>
-              <TouchableOpacity 
-                style={[styles.actionButton, isNavigating && styles.activeButton]}
-                onPress={isNavigating ? stopNavigation : startNavigation}
-              >
-                <Icon name="directions" size={24} color="#fff" />
-                <Text style={styles.actionButtonText}>
-                  {isNavigating ? 'Stop Navigation' : 'Start Navigation'}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.secondaryButton}>
-                <Icon name="phone" size={24} color="#4a90e2" />
-                <Text style={styles.secondaryButtonText}>Call Customer</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </Animated.View>
-      </PanGestureHandler>
-    </SafeAreaView>
+          {/* Action Buttons */}
+          <View style={styles.actionButtonsContainer}>
+            <TouchableOpacity 
+              style={[styles.primaryButton, isNavigating && styles.stopButton]}
+              onPress={isNavigating ? stopNavigation : startNavigation}
+            >
+              <Icon 
+                name={isNavigating ? "stop" : "navigation"} 
+                size={20} 
+                color="white" 
+              />
+              <Text style={styles.buttonText}>
+                {isNavigating ? 'Stop Navigation' : 'Start Navigation'}
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.secondaryButton}
+              onPress={callCustomer}
+            >
+              <Icon name="phone" size={20} color="#4a90e2" />
+              <Text style={styles.buttonText2}>Call Customer</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+  </SafeAreaView>
   );
 };
 
@@ -722,39 +729,41 @@ const startNavigation = async () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#fff',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 30,
+    paddingVertical: 20,
     paddingHorizontal: 16,
     backgroundColor: '#4a90e2',
   },
   headerTitle: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: 'bold',
     flex: 1,
     textAlign: 'center',
   },
   headerButton: {
     padding: 4,
-    borderRadius: 20, // Make button oval
+    borderRadius: 20,
   },
   progressContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: '#E2E8F0',
   },
   stageButton: {
     alignItems: 'center',
     justifyContent: 'center',
+    width: 70,
   },
   stageText: {
     fontSize: 12,
@@ -762,19 +771,72 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   progressLine: {
-    width: 40,
+    flex: 1,
     height: 2,
-    backgroundColor: '#4a90e2',
+    backgroundColor: '#ccc',
     marginHorizontal: 8,
   },
   mapContainer: {
+    flex: 1.2, // Increase this value to make the map larger
+    backgroundColor: 'transparent',
+  },
+  overlaidRouteInfo: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    right: 10,
+    zIndex: 1,
+  },
+  routeInfoCard: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    padding: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  routeInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+  },
+  routeInfoItem: {
+    alignItems: 'center',
     flex: 1,
-    overflow: 'hidden',
-    position: 'relative',
+  },
+  routeInfoValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000',
+    marginBottom: 4,
+  },
+  routeInfoLabel: {
+    fontSize: 12,
+    color: '#666',
+  },
+  routeInfoDivider: {
+    width: 1,
+    height: '100%',
+    backgroundColor: '#eee',
+    marginHorizontal: 16,
+  },
+  expandButton: {
+    position: 'absolute',
+    top: 10,
+    alignSelf: 'center',
+    backgroundColor: 'white',
+    borderRadius: 15,
+    padding: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   map: {
-    width: Dimensions.get('window').width,
-    height: '100%',
+    ...StyleSheet.absoluteFillObject,
   },
   currentLocationMarker: {
     position: 'relative',
@@ -800,126 +862,118 @@ const styles = StyleSheet.create({
     borderRadius: 11,
   },
   destinationMarker: {
-    alignItems: 'center',
+    alignItems: 'center', 
     justifyContent: 'center',
-  },
-  locationDetails: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#fff',
-    padding: 16,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: -2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  dragHandle: {
     width: 40,
-    height: 4,
-    backgroundColor: '#DDD',
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 16,
+    height: 40,
+    padding: 4
   },
-  routeInfo: {
+  detailsContainer: {
+    backgroundColor: 'transparent',
+    padding: 16,
+  },
+  
+  // Route Info Styles
+  routeInfoContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    backgroundColor: 'white',
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  routeInfoItem: {
-    flex: 1,
-  },
-  routeInfoContent: {
-    alignItems: 'flex-start',
-  },
-  routeInfoTitle: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
-  },
-  routeInfoValueContainer: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 12,
+  },
+  routeInfoCard: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
   },
   routeInfoValue: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     color: '#333',
   },
-  routeInfoDescription: {
+  routeInfoLabel: {
     fontSize: 12,
     color: '#666',
   },
   routeInfoDivider: {
     width: 1,
-    alignSelf: 'stretch',
-    backgroundColor: '#E0E0E0',
-    marginHorizontal: 24,
+    height: 40,
+    backgroundColor: '#eee',
+    marginHorizontal: 12,
   },
-  locationHeader: {
+
+  // Info Container Styles
+  infoContainer: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 12,
+  },
+  infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
-  },
-  locationTextContainer: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  locationTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-  },
-  locationAddress: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
-  },
-  actionButtons: {
     gap: 12,
   },
-  actionButton: {
-    backgroundColor: '#4a90e2',
+  infoContent: {
+    flex: 1,
+  },
+  infoTitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
+  },
+  infoSubtitle: {
+    fontSize: 12,
+    color: '#666',
+  },
+  infoDivider: {
+    height: 1,
+    backgroundColor: '#eee',
+    marginVertical: 8,
+  },
+
+  // Action Buttons Styles
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  primaryButton: {
+    flex: 2,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
-    borderRadius: 30, // Make button oval
+    backgroundColor: '#4a90e2',
+    padding: 12,
+    borderRadius: 25,
     gap: 8,
   },
-  actionButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+  stopButton: {
+    backgroundColor: '#e74c3c',
   },
   secondaryButton: {
-    borderWidth: 1,
-    borderColor: '#4a90e2',
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
-    borderRadius: 30, // Make button oval
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#4a90e2',
+    padding: 12,
+    borderRadius: 25,
     gap: 8,
   },
-  secondaryButtonText: {
-    color: '#4a90e2',
-    fontSize: 16,
+  buttonText: {
+    fontSize: 18,
     fontWeight: '600',
+    color: 'white',
+  },
+  buttonText2: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: 'black',
+  },
+  secondaryButton: {
+    color: '#4a90e2',
   },
   offlineIndicator: {
     flexDirection: 'row',
@@ -933,6 +987,142 @@ const styles = StyleSheet.create({
   },
   activeButton: {
     backgroundColor: '#2ecc71',
+  },
+  bottomDetailsContainer: {
+    backgroundColor: '#f8f9fa',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
+    gap: 12,
+  },
+  routeInfoContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 12,
+  },
+  routeInfoCard: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  routeInfoValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  routeInfoLabel: {
+    fontSize: 12,
+    color: '#666',
+  },
+  routeInfoDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: '#eee',
+    marginHorizontal: 12,
+  },
+
+  // Details Card Styles
+  detailsCard: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  detailsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#f0f7ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  detailsContent: {
+    flex: 1,
+  },
+  detailsLabel: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 4,
+  },
+  detailsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 2,
+  },
+  detailsSubtitle: {
+    fontSize: 14,
+    color: '#666',
+  },
+
+  // Button Styles
+  actionButtonsContainer: {
+    gap: 12,
+  },
+  primaryButton: {
+    backgroundColor: '#4a90e2',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 12,
+    shadowColor: '#4a90e2',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+    gap: 8,
+  },
+  stopButton: {
+    backgroundColor: '#e74c3c',
+  },
+  primaryButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  secondaryButton: {
+    borderWidth: 1.5,
+    borderColor: '#4a90e2',
+    backgroundColor: 'white',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 12,
+    gap: 8,
+  },
+  secondaryButtonText: {
+    color: '#4a90e2',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
   },
 });
 

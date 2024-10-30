@@ -1,10 +1,10 @@
 {
   "expo": {
     "name": "SAS Field Service Mobility",
-    "slug": "SAS-FSM",
+    "slug": "sas-fsm",
     "version": "1.1.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/SAS.png",
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/images/splash.png",
@@ -16,7 +16,10 @@
     ],
     "ios": {
       "infoPlist": {
-        "UIBackgroundModes": ["location", "fetch"],
+        "UIBackgroundModes": [
+          "location",
+          "fetch"
+        ],
         "NSLocationWhenInUseUsageDescription": "This app needs access to location to provide navigation.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs access to location to provide navigation even when in background.",
         "NSLocationAlwaysUsageDescription": "This app needs access to location to provide navigation even when in background."
@@ -27,13 +30,17 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.pixelcareconsulting.sasfsm",
       "permissions": [
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_BACKGROUND_LOCATION"
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.RECORD_AUDIO"
       ],
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/SAS.png",
         "backgroundColor": "#584CF4"
       },
       "config": {
@@ -60,6 +67,11 @@
           "cameraPermission": "The app accesses your camera to let you take photos of your work."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "a4350ee2-baa5-40a7-a578-386ac8da2172"
+      }
+    }
   }
 }

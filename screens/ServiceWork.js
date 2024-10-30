@@ -1,62 +1,48 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, TextInput, Image, Dimensions, ActionSheetIOS, Platform, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import * as ImagePicker from 'expo-image-picker';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 
 const ServiceWork = ({ navigation, route }) => {
   const [visitedStages, setVisitedStages] = useState([0, 1, 2]);
 
-  const [tasks, setTasks] = useState([
-    { 
-      id: 1, 
-      title: 'Initial Inspection',
-      description: 'Check equipment status and document initial findings',
-      completed: false,
-      requiredPhotos: true,
-      requiredNotes: true
-    },
-    { 
-      id: 2, 
-      title: 'Maintenance Work',
-      description: 'Perform required maintenance tasks',
-      completed: false,
-      requiredParts: true,
-      subtasks: [
-        { id: 'a', title: 'Replace filters', completed: false },
-        { id: 'b', title: 'Check fluid levels', completed: false },
-      ]
-    },
-    { id: 3, title: 'Test functionality', completed: false },
-    { id: 4, title: 'Document findings', completed: false },
-  ]);
+  const [tasks, setTasks] = useState([]);
 
   const stages = [
     { icon: 'check-circle', name: 'Details', screen: 'ServiceTaskDetails' },
     { icon: 'directions-car', name: 'Navigate', screen: 'NavigateMap' },
     { icon: 'build', name: 'Service', screen: 'ServiceWork' },
-    { icon: 'assignment-turned-in', name: 'Complete', screen: 'Completion' },
+    { icon: 'assignment-turned-in', name: 'Complete', screen: 'Completion' }
   ];
 
   const currentStage = 2;
 
+  const isWorkInProgress = () => {
+    return timeTracking.startTime && !timeTracking.endTime;
+  };
+
   const handleStagePress = (index) => {
+    if (isWorkInProgress()) {
+      Alert.alert(
+        'Work in Progress',
+        'Please end your current work before navigating away.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     if (visitedStages.includes(index)) {
-      if (stages[index].screen === 'ServiceTaskDetails') {
-        navigation.navigate('ServiceTaskDetails', {
-          jobNo: route?.params?.jobNo,
-          workerId: route?.params?.workerId
-        });
-      } else if (stages[index].screen === 'NavigateMap') {
-        navigation.navigate('NavigateMap', {
-          location: route?.params?.location,
-          locationName: route?.params?.locationName,
-          customerName: route?.params?.customerName,
-          jobNo: route?.params?.jobNo,
-          workerId: route?.params?.workerId
-        });
-      } else {
-        navigation.navigate(stages[index].screen);
-      }
+      const navigationParams = {
+        jobNo: route?.params?.jobNo,
+        workerId: route?.params?.workerId,
+        location: route?.params?.location,
+        locationName: route?.params?.locationName,
+        customerName: route?.params?.customerName
+      };
+
+      navigation.navigate(stages[index].screen, navigationParams);
     }
   };
 
@@ -78,12 +64,211 @@ const ServiceWork = ({ navigation, route }) => {
     breaks: [],
   });
 
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [timerInterval, setTimerInterval] = useState(null);
+  const [isPaused, setIsPaused] = useState(false);
+  const [totalPausedTime, setTotalPausedTime] = useState(0);
+  const [lastPauseTime, setLastPauseTime] = useState(null);
+  const [isOnBreak, setIsOnBreak] = useState(false);
+
+  const [equipments, setEquipments] = useState([]);
+
+  // Add the effect to handle updated tasks from the Tasks screen
+  useEffect(() => {
+    if (route.params?.updatedTasks) {
+      setTasks(route.params.updatedTasks);
+    }
+  }, [route.params?.updatedTasks]);
+
+  // Add this useEffect to fetch equipment data
+  useEffect(() => {
+    const fetchEquipment = async () => {
+      try {
+        const jobNo = route?.params?.jobNo;
+        console.log('Fetching equipment for jobNo:', jobNo);
+
+        if (!jobNo) {
+          console.log('No jobNo provided, skipping fetch');
+          return;
+        }
+
+        const jobRef = doc(db, 'jobs', jobNo);
+        const jobSnap = await getDoc(jobRef);
+        
+        if (jobSnap.exists()) {
+          const jobData = jobSnap.data();
+          const equipmentArray = jobData.equipments || [];
+          
+          console.log('Job data:', jobData);
+          console.log('Equipment array:', equipmentArray);
+          console.log('Equipment count:', equipmentArray.length);
+          
+          equipmentArray.forEach((equip, index) => {
+            console.log(`Equipment ${index + 1}:`, {
+              brand: equip.Brand,
+              type: equip.EquipmentType,
+              model: equip.ModelSeries,
+              serial: equip.SerialNo,
+              location: equip.Notes
+            });
+          });
+          
+          setEquipments(equipmentArray);
+        } else {
+          console.log('Job document does not exist');
+        }
+      } catch (error) {
+        console.error('Error fetching equipment:', error);
+      }
+    };
+
+    fetchEquipment();
+  }, [route?.params?.jobNo]);
+
+  // Also add this useEffect to log when equipment state changes
+  useEffect(() => {
+    console.log('Equipment state updated:', equipments);
+    console.log('Total equipment count:', equipments.length);
+    
+    const typeCount = equipments.reduce((acc, equip) => {
+      const type = equip.EquipmentType || 'Unknown';
+      acc[type] = (acc[type] || 0) + 1;
+      return acc;
+    }, {});
+    console.log('Equipment types breakdown:', typeCount);
+  }, [equipments]);
+
+  // Add this useEffect to fetch tasks
+  useEffect(() => {
+    const fetchTasks = async () => {
+      try {
+        const jobNo = route?.params?.jobNo;
+        console.log('Fetching tasks for jobNo:', jobNo);
+
+        if (!jobNo) {
+          console.log('No jobNo provided, skipping task fetch');
+          return;
+        }
+
+        const jobRef = doc(db, 'jobs', jobNo);
+        const jobSnap = await getDoc(jobRef);
+        
+        if (jobSnap.exists()) {
+          const jobData = jobSnap.data();
+          const taskList = jobData.taskList || [];
+          console.log('Tasks from Firebase:', taskList);
+          console.log('Total tasks:', taskList.length);
+          console.log('Completed tasks:', taskList.filter(t => t.completed).length);
+          
+          setTasks(taskList);
+        } else {
+          console.log('Job document does not exist');
+        }
+      } catch (error) {
+        console.error('Error fetching tasks:', error);
+      }
+    };
+
+    fetchTasks();
+  }, [route?.params?.jobNo]);
+
   const handleStartWork = () => {
+    Alert.alert(
+      'Start Working',
+      'Are you sure you want to start working?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Yes',
+          onPress: () => {
+            console.log('Starting job...');
+            const startTime = new Date();
+            setTimeTracking(prev => ({
+              ...prev,
+              startTime: startTime,
+            }));
+
+            // Start the timer
+            const interval = setInterval(() => {
+              if (!isOnBreak) {
+                const currentTime = new Date();
+                const totalElapsedTime = currentTime - startTime;
+                const actualElapsedTime = totalElapsedTime - totalPausedTime;
+                const elapsedSeconds = Math.floor(actualElapsedTime / 1000);
+                setElapsedTime(elapsedSeconds);
+              }
+            }, 1000);
+            setTimerInterval(interval);
+          }
+        }
+      ]
+    );
+  };
+
+  const handleBreak = () => {
+    console.log('Break button pressed. Current break status:', isOnBreak);
+    
+    if (!isOnBreak) {
+      // Starting a break
+      console.log('Starting break...');
+      setLastPauseTime(new Date());
+      setIsOnBreak(true);
+      
+      // Clear existing interval
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        setTimerInterval(null);
+      }
+    } else {
+      // Resuming work
+      console.log('Resuming work...');
+      const now = new Date();
+      const pauseDuration = now - lastPauseTime;
+      setTotalPausedTime(prev => prev + pauseDuration);
+      setIsOnBreak(false);
+      
+      // Restart the timer
+      const startTime = timeTracking.startTime;
+      const interval = setInterval(() => {
+        const currentTime = new Date();
+        const totalElapsedTime = currentTime - startTime;
+        const actualElapsedTime = totalElapsedTime - (totalPausedTime + pauseDuration);
+        const elapsedSeconds = Math.floor(actualElapsedTime / 1000);
+        setElapsedTime(elapsedSeconds);
+      }, 1000);
+      setTimerInterval(interval);
+    }
+  };
+
+  const handleEndWork = () => {
+    if (timerInterval) {
+      clearInterval(timerInterval);
+      setTimerInterval(null);
+    }
+    
+    // If ending while on break, calculate final paused time
+    if (isOnBreak && lastPauseTime) {
+      const finalPauseDuration = new Date() - lastPauseTime;
+      setTotalPausedTime(prev => prev + finalPauseDuration);
+    }
+    
     setTimeTracking(prev => ({
       ...prev,
-      startTime: new Date(),
+      endTime: new Date(),
     }));
   };
+
+  // Add cleanup effect
+  useEffect(() => {
+    return () => {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+      }
+    };
+  }, [timerInterval]);
 
   const handleAddPhoto = async () => {
     if (Platform.OS === 'ios') {
@@ -157,245 +342,173 @@ const ServiceWork = ({ navigation, route }) => {
     }
   };
 
-  const handleCaptureSignature = () => {
-    navigation.navigate('SignatureScreen', {
-      onSave: (signatureImage) => {
-        setSignature({
-          uri: signatureImage,
-          timestamp: new Date(),
-        });
-      },
+  const handleTechnicianSignature = () => {
+    navigation.navigate('TechnicianSignature', {
+      jobNo: route?.params?.jobNo,
+      workerId: route?.params?.workerId,
     });
   };
 
-  const handleCaptureCustomerSignature = () => {
-    navigation.navigate('SignatureScreen', {
-      onSave: (signatureImage) => {
-        setCustomerSignature({
-          uri: signatureImage,
-          timestamp: new Date(),
-        });
-      },
+  const handleCustomerSignature = () => {
+    navigation.navigate('CustomerSignature', {
+      jobNo: route?.params?.jobNo,
+      workerId: route?.params?.workerId,
     });
   };
 
-  const handleBreak = (isStarting) => {
-    setTimeTracking(prev => ({
-      ...prev,
-      breaks: isStarting 
-        ? [...prev.breaks, { start: new Date(), end: null }]
-        : prev.breaks.map((break_, index) => 
-            index === prev.breaks.length - 1 
-              ? { ...break_, end: new Date() }
-              : break_
-          ),
-    }));
+  const formatElapsedTime = (seconds) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const remainingSeconds = seconds % 60;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
-  const handleEndWork = () => {
-    setTimeTracking(prev => ({
-      ...prev,
-      endTime: new Date(),
-    }));
-  };
 
-  const [isAddingTask, setIsAddingTask] = useState(false);
-  const [newTaskTitle, setNewTaskTitle] = useState('');
+  // Add useEffect to log state changes
+  useEffect(() => {
+    console.log('isOnBreak changed:', isOnBreak);
+  }, [isOnBreak]);
 
-  const handleAddTask = () => {
-    if (newTaskTitle.trim()) {
-      setTasks(prevTasks => [...prevTasks, {
-        id: Date.now(), // Simple way to generate unique ID
-        title: newTaskTitle.trim(),
-        completed: false
-      }]);
-      setNewTaskTitle('');
-      setIsAddingTask(false);
+  useEffect(() => {
+    console.log('timeTracking changed:', timeTracking);
+  }, [timeTracking]);
+
+  useEffect(() => {
+    console.log('elapsedTime changed:', elapsedTime);
+  }, [elapsedTime]);
+
+  const handleBackPress = () => {
+    if (isWorkInProgress()) {
+      Alert.alert(
+        'Work in Progress',
+        'Please end your current work before leaving this screen.',
+        [{ text: 'OK' }]
+      );
+      return;
     }
+    navigation.goBack();
   };
 
-  // Add new equipment state
-  const [equipments, setEquipments] = useState([
-    {
-      id: 1,
-      name: 'Air Compressor',
-      model: 'AC-2000',
-      serialNumber: 'SN123456',
-      status: 'In Use',
-      timestamp: new Date()
-    },
-    {
-      id: 2,
-      name: 'Power Generator',
-      model: 'PG-5000',
-      serialNumber: 'SN789012',
-      status: 'Available',
-      timestamp: new Date()
-    },
-    {
-      id: 3,
-      name: 'Welding Machine',
-      model: 'WM-300',
-      serialNumber: 'SN345678',
-      status: 'In Use',
-      timestamp: new Date()
+  useEffect(() => {
+    console.log('ServiceWork - Initial Route Params:', {
+      jobNo: route?.params?.jobNo,
+      workerId: route?.params?.workerId,
+      location: route?.params?.location,
+    });
+  }, []);
+
+  // Add this new function near your other handlers
+  const handleActionPress = (action) => {
+    if (!timeTracking.startTime) {
+      Alert.alert(
+        'Start Work Required',
+        'Please start work before accessing this feature.',
+        [{ text: 'OK' }]
+      );
+      return;
     }
-  ]);
-
-  const handleAddEquipment = (equipment) => {
-    setEquipments(prev => [...prev, {
-      ...equipment,
-      id: Date.now(),
-      timestamp: new Date(),
-    }]);
+    
+    // If work is started, proceed with the original action
+    action.onPress();
   };
 
-  // Add new state for available equipment
-  const [availableEquipments] = useState([
-    {
-      id: 'e1',
-      name: 'Air Compressor',
-      model: 'AC-2000',
-      serialNumber: 'SN123456',
-      status: 'Available'
+  // Update the quickActions mapping in the JSX
+  const quickActions = [
+    { 
+      icon: 'assignment', 
+      title: 'Tasks', 
+      color: '#4a90e2', 
+      count: `${tasks.filter(t => t.completed).length}/${tasks.length}`,
+      onPress: () => {
+        console.log('ServiceWork - Navigation Params:', {
+          jobNo: route?.params?.jobNo,
+          workerId: route?.params?.workerId
+        });
+        
+        navigation.navigate('Tasks', { 
+          taskList: tasks,
+          jobNo: route?.params?.jobNo,
+          workerId: route?.params?.workerId
+        });
+      }
     },
-    {
-      id: 'e2',
-      name: 'Power Generator',
-      model: 'PG-5000',
-      serialNumber: 'SN789012',
-      status: 'Available'
+    { 
+      icon: 'build', 
+      title: 'Equipment', 
+      color: '#9C27B0', 
+      count: `${equipments.length} Items`,
+      onPress: () => {
+        navigation.navigate('Equipment', {
+          jobNo: route?.params?.jobNo,
+          workerId: route?.params?.workerId,
+          equipment: equipments
+        });
+      }
     },
-    {
-      id: 'e3',
-      name: 'Welding Machine',
-      model: 'WM-300',
-      serialNumber: 'SN345678',
-      status: 'Available'
+    
+    { 
+      icon: 'photo-camera', 
+      title: 'Photos', 
+      color: '#FF9800', 
+      count: `${photos.length} Taken`,
+      onPress: () => {
+        navigation.navigate('Photos', {
+          jobNo: route?.params?.jobNo,
+          workerId: route?.params?.workerId,
+          photos: photos
+        });
+      }
+    },
+    { 
+      icon: 'description', 
+      title: 'Report', 
+      color: '#673AB7', 
+      count: 'Required',
+      onPress: () => handleReport()
+    },
+    { 
+      icon: 'edit', 
+      title: 'Technician Signature', 
+      color: '#4CAF50', 
+      count: 'Required',
+      onPress: () => handleTechnicianSignature()
+    },
+    { 
+      icon: 'person', 
+      title: 'Customer Signature', 
+      color: '#2196F3', 
+      count: 'Required',
+      onPress: () => handleCustomerSignature()
     }
-  ]);
-
-  // Add function to handle equipment selection
-  const handleEquipmentSelection = () => {
-    Alert.alert(
-      'Select Equipment',
-      'Choose equipment to add to the service work',
-      availableEquipments
-        .filter(equip => !equipments.some(e => e.id === equip.id))
-        .map(equip => ({
-          text: `${equip.name} (${equip.model})`,
-          onPress: () => {
-            setEquipments(prev => [...prev, {
-              ...equip,
-              status: 'In Use',
-              timestamp: new Date()
-            }]);
-          }
-        }))
-        .concat([
-          { text: 'Cancel', style: 'cancel' }
-        ])
-    );
-  };
-
-  // Add to state declarations
-  const [serviceHistory, setServiceHistory] = useState([
-    {
-      date: '2024-02-15',
-      type: 'Maintenance',
-      technician: 'John Doe',
-      notes: 'Regular maintenance performed'
-    }
-  ]);
-
-  // Add to state declarations
-  const [safetyChecklist, setSafetyChecklist] = useState([
-    { id: 's1', item: 'PPE Equipment Check', completed: false },
-    { id: 's2', item: 'Work Area Safety Check', completed: false },
-    { id: 's3', item: 'Tool Inspection', completed: false },
-    { id: 's4', item: 'Emergency Procedures Review', completed: false }
-  ]);
-
-  // Add new function
-  const toggleSafetyItem = (id) => {
-    setSafetyChecklist(prev => 
-      prev.map(item => 
-        item.id === id ? { ...item, completed: !item.completed } : item
-      )
-    );
-  };
-
-  // Add to state declarations
-  const [diagnosticReadings, setDiagnosticReadings] = useState([]);
-
-  // Add new function
-  const addDiagnosticReading = () => {
-    Alert.prompt(
-      'Add Reading',
-      'Enter measurement details',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel'
-        },
-        {
-          text: 'Add',
-          onPress: (measurement) => {
-            setDiagnosticReadings(prev => [...prev, {
-              id: Date.now(),
-              value: measurement,
-              timestamp: new Date(),
-              type: 'temperature' // or pressure, voltage, etc.
-            }]);
-          }
-        }
-      ]
-    );
-  };
-
-  // Add to state declarations
-  const [communicationLog, setCommunicationLog] = useState([]);
-
-  // Add new function
-  const addCommunicationEntry = () => {
-    Alert.prompt(
-      'Add Communication Entry',
-      'Enter communication details',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel'
-        },
-        {
-          text: 'Add',
-          onPress: (details) => {
-            setCommunicationLog(prev => [...prev, {
-              id: Date.now(),
-              details,
-              timestamp: new Date(),
-              type: 'customer-contact'
-            }]);
-          }
-        }
-      ]
-    );
-  };
+   
+  ];
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Modern Header */}
       <View style={styles.header}>
         <TouchableOpacity 
-          onPress={() => navigation.goBack()}
-          style={styles.headerButton}
+          onPress={handleBackPress}
+          style={[
+            styles.headerButton,
+            isWorkInProgress() && styles.disabledHeaderButton
+          ]}
         >
-          <Icon name="arrow-back" size={24} color="#fff" />
+          <Icon name="arrow-back-ios" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Service Work</Text>
-        <TouchableOpacity style={styles.headerButton}>
-          <Icon name="more-vert" size={24} color="#fff" />
+        <TouchableOpacity 
+          style={[
+            styles.headerButton,
+            isWorkInProgress() && styles.disabledHeaderButton
+          ]}
+          disabled={isWorkInProgress()}
+        >
+          <Icon name="more-horiz" size={24} color="#fff" />
         </TouchableOpacity>
       </View>
 
+      {/* Progress Icons */}
       <View style={styles.progressContainer}>
         {stages.map((stage, index) => (
           <React.Fragment key={stage.name}>
@@ -403,8 +516,9 @@ const ServiceWork = ({ navigation, route }) => {
               onPress={() => handleStagePress(index)}
               style={[
                 styles.stageButton,
-                { opacity: visitedStages.includes(index) ? 1 : 0.5 }
+                isWorkInProgress() && styles.disabledStageButton
               ]}
+              disabled={isWorkInProgress()}
             >
               <Icon 
                 name={stage.icon} 
@@ -413,7 +527,8 @@ const ServiceWork = ({ navigation, route }) => {
               />
               <Text style={[
                 styles.stageText,
-                { color: visitedStages.includes(index) ? '#4a90e2' : '#ccc' }
+                { color: visitedStages.includes(index) ? '#4a90e2' : '#ccc' },
+                isWorkInProgress() && styles.disabledStageText
               ]}>
                 {stage.name}
               </Text>
@@ -421,303 +536,133 @@ const ServiceWork = ({ navigation, route }) => {
             {index < stages.length - 1 && (
               <View style={[
                 styles.progressLine,
-                { backgroundColor: index < currentStage ? '#4a90e2' : '#ccc' }
+                { backgroundColor: visitedStages.includes(index + 1) ? '#4a90e2' : '#ccc' }
               ]} />
             )}
           </React.Fragment>
         ))}
       </View>
 
-      <ScrollView style={styles.content}>
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Time Tracking</Text>
-          {!timeTracking.startTime ? (
-            <TouchableOpacity 
-              style={styles.actionButton}
-              onPress={handleStartWork}
-            >
-              <Icon name="play-circle-filled" size={24} color="#4CAF50" />
-              <Text style={styles.actionButtonText}>Start Work</Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.timeInfo}>
-              <Text>Started: {timeTracking.startTime.toLocaleTimeString()}</Text>
-              
-              {/* Add Time Management controls here */}
-              <View style={styles.timeControls}>
-                <TouchableOpacity 
-                  style={styles.actionButton}
-                  onPress={() => handleBreak(true)}
-                >
-                  <Icon name="pause-circle-filled" size={24} color="#f57c00" />
-                  <Text style={styles.actionButtonText}>Start Break</Text>
-                </TouchableOpacity>
+      <ScrollView style={styles.scrollView}>
+        <View style={styles.mainContent}>
+          {/* Improved Time Tracking Card */}
+          <View style={styles.timeTrackingContainer}>
+            <View style={styles.cardHeader}>
+              <Icon name="schedule" size={24} color="#4a90e2" />
+              <Text style={styles.cardTitle}>Time Tracking</Text>
+            </View>
+            
+            {timeTracking.startTime ? (
+              <View style={styles.timeInfo}>
+                <View style={styles.timeRow}>
+                  <View style={styles.timeBlock}>
+                    <Text style={styles.timeLabel}>Start Time</Text>
+                    <Text style={styles.timeValue}>
+                      {new Date(timeTracking.startTime).toLocaleTimeString()}
+                    </Text>
+                  </View>
+                  <View style={styles.timeBlock}>
+                    <Text style={styles.timeLabel}>Elapsed Time</Text>
+                    <Text style={[styles.timeValue, styles.elapsedTime]}>
+                      {formatElapsedTime(elapsedTime)}
+                    </Text>
+                  </View>
+                </View>
                 
-                <TouchableOpacity 
-                  style={styles.actionButton}
-                  onPress={handleEndWork}
-                >
-                  <Icon name="stop-circle" size={24} color="#f44336" />
-                  <Text style={styles.actionButtonText}>End Work</Text>
-                </TouchableOpacity>
+                <View style={styles.timeActions}>
+                  <TouchableOpacity
+                    style={[styles.actionButton, isOnBreak ? styles.resumeButton : styles.breakButton]}
+                    onPress={handleBreak}
+                  >
+                    <Icon 
+                      name={isOnBreak ? "play-arrow" : "pause"} 
+                      size={20} 
+                      color="#fff" 
+                    />
+                    <Text style={styles.actionButtonText}>
+                      {isOnBreak ? 'Resume Work' : 'Take Break'}
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  {!timeTracking.endTime && (
+                    <TouchableOpacity
+                      style={[styles.actionButton, styles.endButton]}
+                      onPress={handleEndWork}
+                    >
+                      <Icon name="stop" size={20} color="#fff" />
+                      <Text style={styles.actionButtonText}>End Work</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Equipment Used</Text>
-          <TouchableOpacity 
-            style={styles.actionButton}
-            onPress={handleEquipmentSelection}
-          >
-            <Icon name="add-circle" size={24} color="#4a90e2" />
-            <Text style={styles.actionButtonText}>Add Equipment</Text>
-          </TouchableOpacity>
-          
-          {/* Display equipment list */}
-          {equipments.map(equipment => (
-            <View key={equipment.id} style={styles.equipmentItem}>
-              <View style={styles.equipmentHeader}>
-                <Text style={styles.equipmentName}>{equipment.name}</Text>
-                <TouchableOpacity
-                  onPress={() => {
-                    Alert.alert(
-                      'Remove Equipment',
-                      `Remove ${equipment.name} from used equipments?`,
-                      [
-                        { text: 'Cancel', style: 'cancel' },
-                        {
-                          text: 'Remove',
-                          style: 'destructive',
-                          onPress: () => setEquipments(prev => 
-                            prev.filter(e => e.id !== equipment.id)
-                          )
-                        }
-                      ]
-                    );
-                  }}
-                >
-                  <Icon name="close" size={24} color="#666" />
-                </TouchableOpacity>
-              </View>
-              <Text style={styles.equipmentDetail}>Model: {equipment.model}</Text>
-              <Text style={styles.equipmentDetail}>S/N: {equipment.serialNumber}</Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Task Checklist</Text>
-            <TouchableOpacity 
-              style={styles.addTaskButton}
-              onPress={() => setIsAddingTask(true)}
-            >
-              <Icon name="add-circle" size={24} color="#4a90e2" />
-            </TouchableOpacity>
-          </View>
-
-          {isAddingTask && (
-            <View style={styles.addTaskContainer}>
-              <TextInput
-                style={styles.addTaskInput}
-                value={newTaskTitle}
-                onChangeText={setNewTaskTitle}
-                placeholder="Enter new task"
-                autoFocus
-              />
-              <View style={styles.addTaskButtons}>
-                <TouchableOpacity 
-                  style={[styles.taskButton, styles.cancelButton]}
-                  onPress={() => {
-                    setIsAddingTask(false);
-                    setNewTaskTitle('');
-                  }}
-                >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={[styles.taskButton, styles.addButton]}
-                  onPress={handleAddTask}
-                >
-                  <Text style={styles.addButtonText}>Add</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-
-          {tasks.map(task => (
-            <TouchableOpacity 
-              key={task.id}
-              style={styles.taskItem}
-              onPress={() => toggleTask(task.id)}
-            >
-              <Icon 
-                name={task.completed ? "check-circle" : "radio-button-unchecked"}
-                size={24}
-                color={task.completed ? "#4CAF50" : "#666"}
-              />
-              <Text style={[
-                styles.taskText,
-                task.completed && styles.completedTask
-              ]}>
-                {task.title}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Photos</Text>
-          <TouchableOpacity 
-            style={styles.actionButton}
-            onPress={handleAddPhoto}
-          >
-            <Icon name="camera-alt" size={24} color="#4a90e2" />
-            <Text style={styles.actionButtonText}>Add Photo</Text>
-          </TouchableOpacity>
-          
-          {/* Display photos grid */}
-          <View style={styles.photoGrid}>
-            {photos.map((photo, index) => (
-              <Image
-                key={index}
-                source={{ uri: photo.uri }}
-                style={styles.photoThumbnail}
-              />
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Technician Notes</Text>
-          <TextInput
-            style={styles.notesInput}
-            multiline
-            value={notes}
-            onChangeText={setNotes}
-            placeholder="Enter detailed notes about the service..."
-          />
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Technician Signature</Text>
-          <TouchableOpacity 
-            style={styles.actionButton}
-            onPress={handleCaptureSignature}
-          >
-            <Icon name="draw" size={24} color="#4a90e2" />
-            <Text style={styles.actionButtonText}>
-              {signature ? 'Update Signature' : 'Capture Signature'}
-            </Text>
-          </TouchableOpacity>
-          
-          {signature && (
-            <View style={styles.signatureContainer}>
-              <Image
-                source={{ uri: signature.uri }}
-                style={styles.signatureImage}
-                resizeMode="contain"
-              />
+            ) : (
               <TouchableOpacity
-                style={styles.removeSignatureButton}
-                onPress={() => setSignature(null)}
+                style={[styles.actionButton, styles.startButton]}
+                onPress={handleStartWork}
               >
-                <Icon name="close" size={20} color="#666" />
+                <Icon name="play-arrow" size={24} color="#fff" />
+                <Text style={styles.actionButtonText}>Start Work</Text>
               </TouchableOpacity>
+            )}
+          </View>
+            {/* Updated Quick Actions Grid */}
+            <View style={styles.quickActionsGrid}>
+              {quickActions.map((action, index) => (
+                <TouchableOpacity 
+                  key={index}
+                  style={styles.quickActionCard}
+                  onPress={() => handleActionPress(action)}
+                >
+                  <View style={[styles.iconCircle, { backgroundColor: `${action.color}15` }]}>
+                    <Icon name={action.icon} size={24} color={action.color} />
+                  </View>
+                  <Text style={styles.quickActionTitle}>{action.title}</Text>
+                  <Text style={styles.quickActionCount}>{action.count}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
-          )}
-        </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Customer Signature</Text>
-          <TouchableOpacity 
-            style={styles.actionButton}
-            onPress={handleCaptureCustomerSignature}
-          >
-            <Icon name="draw" size={24} color="#4a90e2" />
-            <Text style={styles.actionButtonText}>
-              {customerSignature ? 'Update Customer Signature' : 'Capture Customer Signature'}
-            </Text>
-          </TouchableOpacity>
-          
-          {customerSignature && (
-            <View style={styles.signatureContainer}>
-              <Image
-                source={{ uri: customerSignature.uri }}
-                style={styles.signatureImage}
-                resizeMode="contain"
-              />
-              <TouchableOpacity
-                style={styles.removeSignatureButton}
-                onPress={() => setCustomerSignature(null)}
-              >
-                <Icon name="close" size={20} color="#666" />
-              </TouchableOpacity>
+          {/* Enhanced Notes Section */}
+          <View style={styles.notesSection}>
+            <View style={styles.cardHeader}>
+              <Icon name="note" size={24} color="#4a90e2" />
+              <Text style={styles.cardTitle}>Technician Notes</Text>
             </View>
-          )}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Service History</Text>
-          {serviceHistory.map((record, index) => (
-            <View key={index} style={styles.historyItem}>
-              <Text style={styles.historyDate}>{record.date}</Text>
-              <Text style={styles.historyType}>{record.type}</Text>
-              <Text style={styles.historyNotes}>{record.notes}</Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Safety Checklist</Text>
-          {safetyChecklist.map(item => (
-            <TouchableOpacity 
-              key={item.id}
-              style={styles.checklistItem}
-              onPress={() => toggleSafetyItem(item.id)}
-            >
-              <Icon 
-                name={item.completed ? "check-circle" : "radio-button-unchecked"}
-                size={24}
-                color={item.completed ? "#4CAF50" : "#666"}
-              />
-              <Text style={styles.checklistText}>{item.item}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Diagnostic Readings</Text>
-          <TouchableOpacity 
-            style={styles.actionButton}
-            onPress={addDiagnosticReading}
-          >
-            <Icon name="add-circle" size={24} color="#4a90e2" />
-            <Text style={styles.actionButtonText}>Add Reading</Text>
-          </TouchableOpacity>
-          {diagnosticReadings.map((reading, index) => (
-            <View key={index} style={styles.readingItem}>
-              <Text>Value: {reading.value}</Text>
-              <Text>Time: {reading.timestamp.toLocaleTimeString()}</Text>
-            </View>
-          ))}
+            <TextInput
+              style={styles.notesInput}
+              multiline
+              placeholder="Enter technician notes..."
+              value={notes}
+              onChangeText={setNotes}
+              placeholderTextColor="#94A3B8"
+            />
+          </View>
         </View>
       </ScrollView>
 
+      {/* Enhanced Complete Button */}
       <TouchableOpacity 
         style={[
           styles.completeButton,
-          !allTasksCompleted && styles.disabledButton
+          (!allTasksCompleted || !timeTracking.endTime) && styles.disabledButton
         ]}
-        disabled={!allTasksCompleted}
+        disabled={!allTasksCompleted || !timeTracking.endTime}
         onPress={() => {
           setVisitedStages(prev => [...new Set([...prev, 3])]);
-          navigation.navigate('Completion');
+          navigation.navigate('Completion', {
+            jobNo: route?.params?.jobNo,
+            workerId: route?.params?.workerId
+          });
         }}
       >
-        <Text style={styles.buttonText}>Complete Service</Text>
+        <Text style={styles.completeButtonText}>
+          {!timeTracking.endTime 
+            ? 'End Work Required'
+            : !allTasksCompleted 
+              ? 'Complete All Tasks'
+              : 'Complete Service'
+          }
+        </Text>
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -726,38 +671,230 @@ const ServiceWork = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F8FAFC',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 30,
+    paddingVertical: 20,
     paddingHorizontal: 16,
     backgroundColor: '#4a90e2',
   },
   headerTitle: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: 'bold',
     flex: 1,
     textAlign: 'center',
   },
   headerButton: {
     padding: 4,
+    borderRadius: 20,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  mainContent: {
+    padding: 16,
+  },
+  timeTrackingContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginLeft: 12,
+    color: '#1E293B',
+  },
+  timeInfo: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 16,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  timeBlock: {
+    flex: 1,
+  },
+  timeLabel: {
+    fontSize: 12,
+    color: '#64748B',
+    marginBottom: 4,
+  },
+  timeValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1E293B',
+  },
+  timeActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 12,
+    flex: 1,
+  },
+  actionButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  startButton: {
+    backgroundColor: '#4CAF50',
+  },
+  breakButton: {
+    backgroundColor: '#FF9800',
+  },
+  endButton: {
+    backgroundColor: '#F44336',
+  },
+  quickActionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 16,
+  },
+  quickActionCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    width: (Dimensions.get('window').width - 44) / 2,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+  iconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  quickActionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1E293B',
+    marginBottom: 4,
+  },
+  quickActionCount: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  mainCards: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  mainCard: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+  mainCardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1E293B',
+    marginBottom: 4,
+  },
+  mainCardCount: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  notesSection: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 80,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+  notesInput: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 16,
+    minHeight: 120,
+    textAlignVertical: 'top',
+    fontSize: 14,
+    color: '#1E293B',
+  },
+  completeButton: {
+    position: 'absolute',
+    bottom: 16,
+    left: 16,
+    right: 16,
+    backgroundColor: '#4CAF50',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  completeButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  disabledButton: {
+    backgroundColor: '#94A3B8',
+    elevation: 0,
+    shadowOpacity: 0,
+  },
+  elapsedTime: {
+    color: '#4a90e2',
+    fontWeight: '700',
   },
   progressContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: '#E2E8F0',
   },
   stageButton: {
     alignItems: 'center',
     justifyContent: 'center',
+    width: 70,
   },
   stageText: {
     fontSize: 12,
@@ -765,241 +902,23 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   progressLine: {
-    width: 40,
+    flex: 1,
     height: 2,
-    backgroundColor: '#4a90e2',
+    backgroundColor: '#ccc',
     marginHorizontal: 8,
   },
-  content: {
-    flex: 1,
-    padding: 16,
+  resumeButton: {
+    backgroundColor: '#4CAF50', // Green color for resume
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 16,
+  disabledHeaderButton: {
+    opacity: 0.5,
   },
-  taskItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#fff',
-    marginBottom: 8,
-    borderRadius: 8,
+  disabledStageButton: {
+    opacity: 0.5,
   },
-  taskText: {
-    marginLeft: 16,
-    fontSize: 16,
-  },
-  completedTask: {
-    textDecorationLine: 'line-through',
-    color: '#666',
-  },
-  completeButton: {
-    backgroundColor: '#4CAF50',
-    margin: 16,
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  disabledButton: {
-    backgroundColor: '#ccc',
-  },
-  section: {
-    marginBottom: 24,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 12,
-    borderRadius: 8,
-    marginVertical: 8,
-  },
-  actionButtonText: {
-    marginLeft: 12,
-    fontSize: 16,
-    color: '#4a90e2',
-  },
-  notesInput: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 12,
-    minHeight: 100,
-    textAlignVertical: 'top',
-  },
-  timeInfo: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 8,
-  },
-  timeControls: {
-    marginTop: 16,
-    gap: 8,
-  },
-  photoGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 8,
-    gap: 8,
-  },
-  photoThumbnail: {
-    width: (Dimensions.get('window').width - 48) / 3,
-    height: (Dimensions.get('window').width - 48) / 3,
-    borderRadius: 8,
-  },
-  signatureImage: {
-    width: '100%',
-    height: 200,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  addTaskButton: {
-    padding: 4,
-  },
-  addTaskContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
-  },
-  addTaskInput: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    paddingVertical: 8,
-    fontSize: 16,
-  },
-  addTaskButtons: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 12,
-    gap: 12,
-  },
-  taskButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 4,
-  },
-  cancelButton: {
-    backgroundColor: '#f5f5f5',
-  },
-  addButton: {
-    backgroundColor: '#4a90e2',
-  },
-  cancelButtonText: {
-    color: '#666',
-  },
-  addButtonText: {
-    color: '#fff',
-  },
-  equipmentItem: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  equipmentHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  equipmentName: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  equipmentStatus: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  equipmentDetail: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
-  },
-  signatureContainer: {
-    position: 'relative',
-    marginTop: 8,
-  },
-  removeSignatureButton: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 4,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  historyItem: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  historyDate: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  historyType: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 4,
-  },
-  historyNotes: {
-    fontSize: 14,
-    color: '#666',
-  },
-  checklistItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderWidth: 2,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  checklistText: {
-    marginLeft: 12,
-    fontSize: 16,
-    color: '#666',
-  },
-  partItem: {
-    backgroundColor: '#fff',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  partName: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  partQuantity: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
-  },
-  readingItem: {
-    backgroundColor: '#fff',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
+  disabledStageText: {
+    opacity: 0.5,
+  }
 });
 
 export default ServiceWork;
