@@ -10,8 +10,8 @@ import { db } from '../firebase';
 
 // Constants
 const GEOFENCE_RADIUS = 100; // meters
-const LOCATION_UPDATE_INTERVAL = 5000; // 10 seconds
-const UPDATE_INTERVAL = 100; // milliseconds for simulation updates
+const LOCATION_UPDATE_INTERVAL = 10000; // 10 seconds DEFAULT 10000
+const UPDATE_INTERVAL = 300; // DEFAULT 300 milliseconds for simulation updates
 
 const SINGAPORE_LANDMARKS = {
   TAMPINES: {

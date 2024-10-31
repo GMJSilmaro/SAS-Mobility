@@ -6,10 +6,24 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "android": {
+        "gradleCommand": ":app:assembleDebug",
+        "buildType": "apk",
+        "env": {
+          "ANDROID_NDK_HOME": "/usr/local/share/android-ndk"
+        }
+      }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease",
+        "env": {
+          "ANDROID_NDK_HOME": "/usr/local/share/android-ndk"
+        }
+      }
     },
     "production": {
       "autoIncrement": true

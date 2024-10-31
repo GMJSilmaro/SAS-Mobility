@@ -1,43 +1,40 @@
-// Import the functions you need from the SDKs you need
-import { initializeApp } from 'firebase/app'
-import { getAnalytics } from 'firebase/analytics'
-import { getFirestore } from 'firebase/firestore'
-import { getStorage } from 'firebase/storage'
-import {
-    getAuth,
-    initializeAuth,
-    getReactNativePersistence,
-} from 'firebase/auth'
-import AsyncStorage from '@react-native-async-storage/async-storage'
+// firebase.config.js
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getAuth, initializeAuth, getReactNativePersistence } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 
+// Your Firebase configuration
 const firebaseConfig = {
-    apiKey: process.env.FIREBASE_API_KEY,
-    authDomain: process.env.FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.FIREBASE_PROJECT_ID,
-    storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
-    appId: process.env.FIREBASE_APP_ID,
-    measurementId: process.env.FIREBASE_MEASUREMENT_ID
+    apiKey: Constants.expoConfig.extra.firebaseApiKey,
+    authDomain: Constants.expoConfig.extra.firebaseAuthDomain,
+    projectId: Constants.expoConfig.extra.firebaseProjectId,
+    storageBucket: Constants.expoConfig.extra.firebaseStorageBucket,
+    messagingSenderId: Constants.expoConfig.extra.firebaseSenderId,
+    appId: Constants.expoConfig.extra.firebaseAppId,
+    measurementId: Constants.expoConfig.extra.firebaseMeasurementId
 };
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig)
+let app;
+let auth;
+let db;
+let storage;
 
-// Conditionally initialize Firebase Analytics
-let analytics
-if (typeof window !== 'undefined' && window.navigator.cookieEnabled) {
-    analytics = getAnalytics(app)
+if (getApps().length === 0) {
+    app = initializeApp(firebaseConfig);
+    auth = initializeAuth(app, {
+        persistence: getReactNativePersistence(AsyncStorage)
+    });
+    db = getFirestore(app);
+    storage = getStorage(app);
+} else {
+    app = getApp();
+    auth = getAuth(app);
+    db = getFirestore(app);
+    storage = getStorage(app);
 }
 
-// Initialize Firestore
-const db = getFirestore(app)
-
-// Initialize Storage
-const storage = getStorage(app)
-
-// Initialize Auth with AsyncStorage persistence
-const auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage),
-})
-
-export { db, storage, analytics, auth }
+export { auth, db, storage };

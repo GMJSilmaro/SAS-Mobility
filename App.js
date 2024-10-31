@@ -6,7 +6,6 @@ import { FONTS } from './constants/fonts';
 import AppNavigation from './navigations/AppNavigation';
 import { LogBox } from 'react-native';
 import FlashMessage from 'react-native-flash-message';
-import { JobDataProvider } from './contexts/JobDataContext';
 
 //Ignore all log notifications
 LogBox.ignoreAllLogs();
@@ -27,11 +26,9 @@ export default function App() {
   }
 
   return (
-      <JobDataProvider>
         <SafeAreaProvider onLayout={onLayoutRootView}>
           <AppNavigation />
           <FlashMessage position="bottom" />
         </SafeAreaProvider>
-      </JobDataProvider>
   );
 }

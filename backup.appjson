@@ -1,0 +1,77 @@
+{
+  "expo": {
+    "name": "SAS Field Service Mobility",
+    "slug": "sas-fsm",
+    "version": "1.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/SAS.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/images/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#584CF4"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "location",
+          "fetch"
+        ],
+        "NSLocationWhenInUseUsageDescription": "This app needs access to location to provide navigation.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs access to location to provide navigation even when in background.",
+        "NSLocationAlwaysUsageDescription": "This app needs access to location to provide navigation even when in background."
+      },
+      "config": {
+        "googleMapsApiKey": "AIzaSyAqKCJbvo1YUX4wKMXkpLYe0Bglfxxto_g"
+      },
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.sasfsm.sasfsm",
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/SAS.png",
+        "backgroundColor": "#584CF4"
+      },
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyAqKCJbvo1YUX4wKMXkpLYe0Bglfxxto_g"
+        }
+      }
+    },
+    "web": {
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-font",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you share them with your customers.",
+          "cameraPermission": "The app accesses your camera to let you take photos of your work."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "a4350ee2-baa5-40a7-a578-386ac8da2172"
+      }
+    }
+  }
+}
