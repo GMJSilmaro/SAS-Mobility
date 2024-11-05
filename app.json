@@ -81,13 +81,13 @@
             "eas": {
                 "projectId": "a4350ee2-baa5-40a7-a578-386ac8da2172"
             },
-            "firebaseApiKey": "AIzaSyAN7o4-N5unSUCtU7amZKRA4TRV7WjJ01Y",
-            "firebaseAuthDomain": "sas-fsm.firebaseapp.com",
-            "firebaseProjectId": "sas-fsm",
-            "firebaseStorageBucket": "sas-fsm.appspot.com",
-            "firebaseSenderId": "653364522600",
-            "firebaseAppId": "1:653364522600:web:fc90ef9dedda2181a9d5dd",
-            "firebaseMeasurementId": "G-JX36QS06TM"
+            "firebaseApiKey": "AIzaSyCvIXUF3JMGvsakHw6U9vUabVhyBM13GG8",
+            "firebaseAuthDomain": "potensi-db.firebaseapp.com",
+            "firebaseProjectId": "potensi-db",
+            "firebaseStorageBucket": "potensi-db.appspot.com",
+            "firebaseSenderId": "1075549750844",
+            "firebaseAppId": "1:1075549750844:web:286062f6d24af6608f6539",
+            "firebaseMeasurementId": "G-YGKW881Q7K"
         }
     }
 }

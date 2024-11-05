@@ -1,5 +1,13 @@
 import React, { useState } from 'react'
-import { StyleSheet, Text, View, TextInput, Alert } from 'react-native'
+import {
+    StyleSheet,
+    Text,
+    View,
+    TextInput,
+    Alert,
+    Image,
+    ScrollView,
+} from 'react-native'
 import Header from '../components/Header'
 import AntDesign from '@expo/vector-icons/AntDesign'
 import { Dropdown } from 'react-native-element-dropdown'
@@ -8,6 +16,9 @@ import { format } from 'date-fns'
 import Button from '../components/Button'
 import { doc, updateDoc, setDoc, getDoc, arrayUnion } from 'firebase/firestore'
 import { db } from '../firebase'
+import * as ImagePicker from 'expo-image-picker'
+
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 
 const issueData = [
     { label: 'Yes', value: 'yes' },
@@ -29,6 +40,7 @@ const JobsReport = ({ navigation, route }) => {
     const [showDatePicker, setShowDatePicker] = useState(false)
     const [rescheduledDate, setRescheduledDate] = useState(new Date())
     const [dateSelected, setDateSelected] = useState(false)
+    const [photos, setPhotos] = useState([])
 
     const handleSubmit = async () => {
         if (!issueValue || !rescheduledValue) {
@@ -43,22 +55,19 @@ const JobsReport = ({ navigation, route }) => {
             rescheduledDate: dateSelected
                 ? format(rescheduledDate, 'yyyy-MM-dd')
                 : null,
+            photos, // Add photos (download URLs) to the report
         }
 
         console.log('Submitting report:', workerReport)
 
         try {
-            const currentDate = format(new Date(), 'MM-dd-yyyy') // Corrected format
             const docRef = doc(
                 db,
-                'workerAttendance',
-                workerId,
-                currentDate,
-                'workerStatus',
+                'jobs',
                 jobNo,
-                'JobStatus'
+                'jobReports',
+                `JS-${workerId}`
             )
-
             const docSnap = await getDoc(docRef)
 
             // Check if the document exists
@@ -83,10 +92,64 @@ const JobsReport = ({ navigation, route }) => {
         }
     }
 
+    const uploadPhoto = async (uri) => {
+        const response = await fetch(uri)
+        const blob = await response.blob()
+        const storageRef = ref(
+            getStorage(),
+            `jobReports/${jobNo}/${Date.now()}_${workerId}`
+        )
+        await uploadBytes(storageRef, blob)
+        return await getDownloadURL(storageRef)
+    }
+
+    const takePhoto = async () => {
+        // Request permission for camera access
+        const permissionResult =
+            await ImagePicker.requestCameraPermissionsAsync()
+        if (permissionResult.granted === false) {
+            Alert.alert('Permission to access the camera is required!')
+            return
+        }
+
+        const result = await ImagePicker.launchCameraAsync({
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 1,
+        })
+
+        if (!result.canceled) {
+            const downloadURL = await uploadPhoto(result.assets[0].uri)
+            setPhotos([...photos, downloadURL]) // Add the new photo URL to the state
+        }
+    }
+
+    const pickImage = async () => {
+        // Request permission for media library access
+        const permissionResult =
+            await ImagePicker.requestMediaLibraryPermissionsAsync()
+        if (permissionResult.granted === false) {
+            Alert.alert('Permission to access camera roll is required!')
+            return
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [4, 3],
+            quality: 1,
+        })
+
+        if (!result.canceled) {
+            const downloadURL = await uploadPhoto(result.assets[0].uri)
+            setPhotos([...photos, downloadURL]) // Add the new photo URL to the state
+        }
+    }
+
     return (
         <View style={styles.container}>
             <Header title="Job Report" />
-            <View style={styles.container}>
+            <ScrollView style={styles.container}>
                 <Text style={styles.staticLabel}>Any issue?</Text>
                 <Dropdown
                     style={[
@@ -189,7 +252,24 @@ const JobsReport = ({ navigation, route }) => {
                         editable={false}
                     />
                 )}
-            </View>
+
+                {/* Buttons for adding images */}
+                <View style={styles.photoContainer}>
+                    <Button title="Choose Photo" onPress={pickImage} />
+                    <Button title="Take Photo" onPress={takePhoto} />
+                </View>
+
+                {/* Display selected images */}
+                <View style={styles.imagesContainer}>
+                    {photos.map((uri, index) => (
+                        <Image
+                            key={index}
+                            source={{ uri }}
+                            style={styles.image}
+                        />
+                    ))}
+                </View>
+            </ScrollView>
             <Button
                 title="Submit"
                 onPress={handleSubmit}
@@ -227,24 +307,36 @@ const styles = StyleSheet.create({
     selectedTextStyle: {
         fontSize: 16,
     },
-    iconStyle: {
-        width: 20,
-        height: 20,
-    },
     inputSearchStyle: {
         height: 40,
         fontSize: 16,
     },
     textInput: {
-        height: 50,
+        height: 40,
         borderColor: 'gray',
-        borderWidth: 0.5,
+        borderWidth: 1,
         borderRadius: 8,
         paddingHorizontal: 8,
         marginBottom: 16,
     },
     continueBtn: {
-        marginTop: 20,
+        marginTop: 16,
+    },
+    photoContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginVertical: 16,
+    },
+    imagesContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
+    },
+    image: {
+        width: 100,
+        height: 100,
+        borderRadius: 8,
+        margin: 5,
     },
 })
 

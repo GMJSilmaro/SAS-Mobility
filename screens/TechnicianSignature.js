@@ -18,7 +18,7 @@ import {
     uploadBytes,
     getDownloadURL,
 } from 'firebase/storage'
-import { doc, updateDoc, getDoc } from 'firebase/firestore'
+import { doc, updateDoc, getDoc, setDoc } from 'firebase/firestore'
 import moment from 'moment'
 import * as FileSystem from 'expo-file-system'
 

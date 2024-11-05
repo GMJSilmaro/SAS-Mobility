@@ -521,6 +521,13 @@ const ServiceWork = ({ navigation, route }) => {
         })
     }
 
+    const handleReport = () => {
+        navigation.navigate('JobReport', {
+            jobNo: route?.params?.jobNo,
+            workerId: route?.params?.workerId,
+        })
+    }
+
     const handleCustomerSignature = () => {
         navigation.navigate('CustomerSignature', {
             jobNo: route?.params?.jobNo,
@@ -634,7 +641,7 @@ const ServiceWork = ({ navigation, route }) => {
             icon: 'description',
             title: 'Report',
             color: '#673AB7',
-            count: 'Required',
+            count: 'Optional',
             onPress: () => handleReport(),
         },
         {
