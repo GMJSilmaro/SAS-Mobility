@@ -333,93 +333,98 @@ const JobDetails = ({ navigation, route }) => {
     )
 
     async function handleJobButtonClick() {
-        const currentDate = moment().format('MM-DD-YYYY') // Format current date as MM-DD-YYYY
-        const workerStatusRef = doc(
-            db,
-            'workerAttendance',
-            workerId,
-            currentDate,
-            'workerStatus'
-        )
-        const jobStatusRef = doc(workerStatusRef, jobNo, 'JobStatus')
-        const jobDocRef = doc(db, 'jobs', jobNo)
-
+        const currentDate = moment().format('MM-DD-YYYY'); // Format current date as MM-DD-YYYY
+        const workerAttendanceRef = collection(db, 'users', workerId, 'attendanceLogs');
+        const workerStatusRef = doc(db, 'workerAttendance', workerId, currentDate, 'workerStatus');
+        const jobStatusRef = doc(workerStatusRef, jobNo, 'JobStatus');
+        const jobDocRef = doc(db, 'jobs', jobNo);
+    
         // Common date and time formatting
-        const formattedClockInDate = moment().format('MM-DD-YYYY')
-        const formattedClockInTime = moment().format(
-            'MMMM D, YYYY [at] h:mm:ss A [UTC+8]'
-        )
-        const formattedClockOutDate = moment().format('MM-DD-YYYY')
-        const formattedClockOutTime = moment().format(
-            'MMMM D, YYYY [at] h:mm:ss A [UTC+8]'
-        )
-
+        const formattedClockInDate = moment().format('MM-DD-YYYY');
+        const formattedClockInTime = moment().format('MMMM D, YYYY [at] h:mm:ss A [UTC+8]');
+        const formattedClockOutDate = moment().format('MM-DD-YYYY');
+        const formattedClockOutTime = moment().format('MMMM D, YYYY [at] h:mm:ss A [UTC+8]');
+    
+        // Check clock-in status
+        try {
+            const attendanceSnap = await getDocs(workerAttendanceRef);
+            const isClockedIn = attendanceSnap.docs.some(doc => {
+                const log = doc.data();
+                return log.date === currentDate && log.isClockedIn;
+            });
+    
+            if (!isClockedIn) {
+                Alert.alert(
+                    'Clock-In Required',
+                    'Please clock in before starting a job.',
+                    [
+                        {
+                            text: 'Go to Profile',
+                            onPress: () => navigation.navigate('Profile'), // Redirect to profile for clock-in
+                        },
+                        { text: 'Cancel', style: 'cancel' },
+                    ]
+                );
+                return;
+            }
+        } catch (error) {
+            console.error('Error checking attendance logs:', error);
+            Alert.alert('Error', 'Unable to verify clock-in status.');
+            return;
+        }
+    
         try {
             // Navigate to Home.js if the job is completed
             if (jobButtonTitle === 'Completed') {
-                navigation.navigate('Home') // Ensure you have access to `navigation` from your component
-                return // Exit the function after navigation
+                navigation.navigate('Home');
+                return;
             }
-
-            // Show a confirmation alert for "Job Start" or "End Job"
-            const confirmationMessage =
-                jobButtonTitle === 'Job Start'
-                    ? 'Are you sure you want to start this job?'
-                    : 'Are you sure you want to end this job?'
-            const alertTitle =
-                jobButtonTitle === 'Job Start'
-                    ? 'Confirm Job Start'
-                    : 'Confirm Job End'
-
+    
+            const confirmationMessage = jobButtonTitle === 'Job Start'
+                ? 'Are you sure you want to start this job?'
+                : 'Are you sure you want to end this job?';
+            const alertTitle = jobButtonTitle === 'Job Start' ? 'Confirm Job Start' : 'Confirm Job End';
+    
             Alert.alert(
                 alertTitle,
                 confirmationMessage,
                 [
                     {
                         text: 'Cancel',
-                        style: 'cancel', // Cancel button style
+                        style: 'cancel',
                     },
                     {
                         text: 'Yes',
                         onPress: async () => {
                             if (jobButtonTitle === 'Job Start') {
-                                // Check if job location is recorded
-                                console.log(
-                                    'isJobLocationRecorded:',
-                                    isJobLocationRecorded
-                                ) // Debugging statement
-
+                                // Job Start Logic
                                 if (!isJobLocationRecorded) {
                                     Alert.alert(
                                         'Error: Location Missing!',
                                         'The job location has not been recorded yet. Please record the job location before starting the job.'
-                                    )
-                                    return
+                                    );
+                                    return;
                                 }
-
+    
                                 // Fetch job data to get jobName
-                                const jobDocSnap = await getDoc(jobDocRef)
-                                let jobName = ''
+                                const jobDocSnap = await getDoc(jobDocRef);
+                                let jobName = '';
                                 if (jobDocSnap.exists()) {
-                                    jobName = jobDocSnap.data().jobName // Fetch the jobName from the job document
+                                    jobName = jobDocSnap.data().jobName;
                                 } else {
-                                    console.error('No such job document found!')
-                                    Alert.alert(
-                                        'Error',
-                                        'Job information could not be retrieved.'
-                                    )
-                                    return
+                                    console.error('No such job document found!');
+                                    Alert.alert('Error', 'Job information could not be retrieved.');
+                                    return;
                                 }
-                                const startTimestamp = serverTimestamp()
-
-                                // Update the workerStatus document
+    
+                                const startTimestamp = serverTimestamp();
+    
                                 await updateDoc(workerStatusRef, {
-                                    [`jobNo.${jobNo}`]: 'On Going', // Update job status in the jobNo map
+                                    [`jobNo.${jobNo}`]: 'On Going',
                                     isClockedIn: true,
                                     isWorking: true,
-                                })
-
-                                // Update the JobStatus document with just the status field
+                                });
+    
                                 await updateDoc(jobStatusRef, {
                                     status: 'On Going',
                                     timeStart: startTimestamp,
@@ -427,18 +432,13 @@ const JobDetails = ({ navigation, route }) => {
                                     workerReport: '',
                                     technicianSignature: '',
                                     customerSignature: '',
-                                })
-
-                                // Update the jobStatus in the jobs collection
+                                });
+    
                                 await updateDoc(jobDocRef, {
-                                    jobStatus: 'JS', // Update jobStatus to reflect the current status
-                                })
-
-                                // Upload to recentActivities
-                                const recentActivitiesRef = collection(
-                                    db,
-                                    'recentActivities'
-                                )
+                                    jobStatus: 'JS',
+                                });
+    
+                                const recentActivitiesRef = collection(db, 'recentActivities');
                                 try {
                                     await addDoc(recentActivitiesRef, {
                                         activity: 'Job Started',
@@ -446,131 +446,96 @@ const JobDetails = ({ navigation, route }) => {
                                         icon: 'check',
                                         time: serverTimestamp(),
                                         workerId: workerId,
-                                    })
-                                    console.log(
-                                        'Activity added to recentActivities successfully.'
-                                    )
+                                    });
+                                    console.log('Activity added to recentActivities successfully.');
                                 } catch (addDocError) {
-                                    console.error(
-                                        'Error adding to recentActivities:',
-                                        addDocError
-                                    )
-                                    Alert.alert(
-                                        'Error',
-                                        'Failed to add activity to recentActivities.'
-                                    )
+                                    console.error('Error adding to recentActivities:', addDocError);
+                                    Alert.alert('Error', 'Failed to add activity to recentActivities.');
                                 }
-
-                                setJobButtonTitle('End Job')
-                                setWorkerStatus('Started')
-
+    
+                                setJobButtonTitle('End Job');
+                                setWorkerStatus('Started');
+    
                                 Alert.alert(
                                     'Job Status',
                                     `Job Started at ${formattedClockInDate} ${formattedClockInTime}`
-                                )
+                                );
                             } else {
-                                // Before ending the job, check for signatures
-                                const jobStatusSnap = await getDoc(jobStatusRef)
+                                // Job End Logic
+                                const jobStatusSnap = await getDoc(jobStatusRef);
                                 if (jobStatusSnap.exists()) {
-                                    const {
-                                        customerSignature,
-                                        technicianSignature,
-                                    } = jobStatusSnap.data()
-
-                                    if (
-                                        !customerSignature ||
-                                        !technicianSignature
-                                    ) {
+                                    const { customerSignature, technicianSignature } = jobStatusSnap.data();
+    
+                                    if (!customerSignature || !technicianSignature) {
                                         Alert.alert(
                                             'Error: Signatures Required!',
                                             'Both customer signature and technician signature must be provided before ending the job.'
-                                        )
-                                        return
+                                        );
+                                        return;
                                     }
                                 } else {
-                                    console.error(
-                                        'No such job status document found!'
-                                    )
-                                    Alert.alert(
-                                        'Error',
-                                        'Job status information could not be retrieved.'
-                                    )
-                                    return
+                                    console.error('No such job status document found!');
+                                    Alert.alert('Error', 'Job status information could not be retrieved.');
+                                    return;
                                 }
-
-                                const endTimestamp = serverTimestamp()
-
-                                // Update the workerStatus document
+    
+                                const endTimestamp = serverTimestamp();
+    
                                 await updateDoc(workerStatusRef, {
                                     [`jobNo.${jobNo}`]: 'Completed',
-
                                     isClockedIn: true,
                                     isWorking: false,
-                                })
-
-                                // Update the JobStatus document with just the status field
+                                });
+    
                                 await updateDoc(jobStatusRef, {
                                     status: 'Completed',
                                     timeEnd: endTimestamp,
                                     dateEnded: endTimestamp,
-                                })
-
-                                // Update the jobStatus in the jobs collection
+                                });
+    
                                 await updateDoc(jobDocRef, {
-                                    jobStatus: 'JC', // Update jobStatus to reflect the completed state
-                                })
-
-                                const jobDocSnap = await getDoc(jobDocRef)
-                                let jobName = ''
+                                    jobStatus: 'JC',
+                                });
+    
+                                const jobDocSnap = await getDoc(jobDocRef);
+                                let jobName = '';
                                 if (jobDocSnap.exists()) {
-                                    jobName = jobDocSnap.data().jobName // Fetch the jobName from the job document
+                                    jobName = jobDocSnap.data().jobName;
                                 }
-
-                                // Upload to recentActivities for job completion
-                                const recentActivitiesRef = collection(
-                                    db,
-                                    'recentActivities'
-                                )
+    
                                 try {
                                     await addDoc(recentActivitiesRef, {
                                         activity: 'Job Completed',
                                         activitybrief: `Job ${jobName} (Job No: ${jobNo}) was completed.`,
                                         icon: 'check',
-                                        time: endTimestamp, // Use serverTimestamp for time
+                                        time: endTimestamp,
                                         workerId: workerId,
-                                    })
-                                    console.log(
-                                        'Activity added to recentActivities successfully.'
-                                    )
+                                    });
+                                    console.log('Activity added to recentActivities successfully.');
                                 } catch (addDocError) {
-                                    console.error(
-                                        'Error adding to recentActivities:',
-                                        addDocError
-                                    )
-                                    Alert.alert(
-                                        'Error',
-                                        'Failed to add activity to recentActivities.'
-                                    )
+                                    console.error('Error adding to recentActivities:', addDocError);
+                                    Alert.alert('Error', 'Failed to add activity to recentActivities.');
                                 }
-
-                                setWorkerStatus('Ended')
-                                setJobButtonTitle('Completed')
-
+    
+                                setWorkerStatus('Ended');
+                                setJobButtonTitle('Completed');
+    
                                 Alert.alert(
                                     'Job Status',
                                     `Job Ended at ${formattedClockOutDate} ${formattedClockOutTime}`
-                                )
+                                );
                             }
                         },
                     },
                 ],
-                { cancelable: true } // Allows the alert to be dismissed by tapping outside
-            )
+                { cancelable: true }
+            );
         } catch (error) {
-            console.error('Error updating job status:', error)
-            Alert.alert('Error', 'Failed to update job status.')
+            console.error('Error updating job status:', error);
+            Alert.alert('Error', 'Failed to update job status.');
         }
     }
+    
 
     const inputChangedHandler = useCallback((inputId, inputValue) => {
         const result = validateInput(inputId, inputValue)

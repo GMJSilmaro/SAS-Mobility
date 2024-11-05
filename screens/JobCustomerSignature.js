@@ -93,7 +93,7 @@ const JobCustomerSignature = ({ navigation, route }) => {
             // Upload the blob to Firebase Storage
             const signatureStorageRef = storageRef(
                 storage,
-                `signatures/${jobNo}-${workerId}-Customer.png`
+                `jobSignature/${jobNo}-${workerId}-Customer.png`
             )
             await uploadBytes(signatureStorageRef, blob)
 
@@ -105,17 +105,13 @@ const JobCustomerSignature = ({ navigation, route }) => {
             const currentDate = moment().format('MM-DD-YYYY')
 
             // Update Firestore document with the download URL
-            const docRef = doc(
-                db,
-                'workerAttendance',
-                workerId,
-                currentDate,
-                'workerStatus',
-                jobNo,
-                'JobStatus'
-            )
+            const docRef = doc(db, 'jobs', jobNo)
             await updateDoc(docRef, {
-                customerSignature: downloadURL,
+                customerSignature: {
+                    signatureTimestamp: new Date().toISOString,
+                    signatureURL: downloadURL,
+                    signedBy: 'Customer Name',
+                },
             })
 
             setSavedSignature(downloadURL)

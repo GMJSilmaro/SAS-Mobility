@@ -143,7 +143,7 @@ const BottomTabNavigation = ({ route }) => {
                     ),
                 }}
             />
-               <Tab.Screen
+            <Tab.Screen
                 name="Chat"
                 component={Chat}
                 initialParams={{ workerId }} // Pass workerId here
@@ -151,9 +151,7 @@ const BottomTabNavigation = ({ route }) => {
                     tabBarIcon: ({ focused }) => (
                         <View style={{ alignItems: 'center' }}>
                             <Image
-                                source={
-                                    focused ? icons.document : icons.document2
-                                }
+                                source={focused ? icons.chat : icons.chat}
                                 resizeMode="contain"
                                 style={{
                                     height: 24,
@@ -171,7 +169,7 @@ const BottomTabNavigation = ({ route }) => {
                                         : COLORS.gray3,
                                 }}
                             >
-                                Jobs List
+                                Chats
                             </Text>
                         </View>
                     ),
