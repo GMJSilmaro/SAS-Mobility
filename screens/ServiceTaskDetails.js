@@ -4,6 +4,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { db } from '../firebase';
 import { COLORS } from '../constants';
+import moment from 'moment';
 
 const ServiceTaskDetails = ({ navigation, route }) => {
   const [jobData, setJobData] = useState(null);
@@ -248,53 +249,80 @@ const ServiceTaskDetails = ({ navigation, route }) => {
   );
 
   // Update the Accept Job button to show different text based on acceptance status
-  const handleNavigatePress = () => {
+const handleNavigatePress = async () => {
     // Check if worker is assigned to this job
     const isAssigned = jobData?.assignedWorkers?.some(w => w.workerId === workerId);
     
     if (!isAssigned) {
-      Alert.alert(
-        'Access Denied',
-        'You are not assigned to this job. Please contact your supervisor.'
-      );
-      return;
+        Alert.alert(
+            'Access Denied',
+            'You are not assigned to this job. Please contact your supervisor.'
+        );
+        return;
     }
 
     if (!jobData?.location?.coordinates) {
-      Alert.alert(
-        'Missing Location',
-        'This job does not have valid location coordinates.'
-      );
-      return;
+        Alert.alert(
+            'Missing Location',
+            'This job does not have valid location coordinates.'
+        );
+        return;
     }
 
-    // Show confirmation modal only if not accepted before
-    if (!hasAccepted) {
-      setShowConfirmation(true);
-    } else {
-      navigation.navigate('NavigateMap', {
-        location: jobData.location,
-        locationName: jobData.locationName,
-        customerName: jobData.customerName,
-        jobNo: jobNo,
-        workerId: workerId
-      });
-    }
-  };
+    // Format current date as MM-DD-YYYY
+    const currentDate = moment().format('MM-DD-YYYY');
+    const attendanceLogRef = doc(db, 'users', workerId, 'attendanceLogs', currentDate);
 
-  // Add this near your other navigation handlers
-  const handleTasksPress = () => {
+    try {
+        // Check if the attendance log for the current date exists
+        const attendanceLogSnap = await getDoc(attendanceLogRef);
+        
+        if (!attendanceLogSnap.exists()) {
+            // If attendance log doesn't exist, redirect to Profile for clock-in
+            Alert.alert(
+                'Clock-In Required',
+                'Please clock in before proceeding to the job.',
+                [
+                    {
+                        text: 'Go to Profile',
+                        onPress: () => navigation.navigate('Profile'), // Redirect to Profile for clock-in
+                    },
+                    { text: 'Cancel', style: 'cancel' }
+                ]
+            );
+            return;
+        }
+
+        // Show confirmation modal only if not accepted before
+        if (!hasAccepted) {
+            setShowConfirmation(true);
+        } else {
+            navigation.navigate('NavigateMap', {
+                location: jobData.location,
+                locationName: jobData.locationName,
+                customerName: jobData.customerName,
+                jobNo: jobNo,
+                workerId: workerId
+            });
+        }
+    } catch (error) {
+        console.error('Error fetching attendance log:', error);
+        Alert.alert('Error', 'Unable to verify clock-in status.');
+    }
+};
+
+// Add this near your other navigation handlers
+const handleTasksPress = () => {
     console.log('Navigating to TasksScreen with params:', {
-      jobNo,
-      workerId
+        jobNo,
+        workerId
     });
     
     navigation.navigate('TasksScreen', {
-      jobNo: jobNo,
-      workerId: workerId
+        jobNo: jobNo,
+        workerId: workerId
     });
-  };
-
+};
   return (
     <View style={styles.container}>
       {/* Header */}

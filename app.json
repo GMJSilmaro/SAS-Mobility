@@ -1,98 +1,93 @@
 {
     "expo": {
-      "name": "SAS Field Service Mobility",
-      "slug": "sas-fsm",
-      "version": "1.1.0",
-      "orientation": "portrait",
-      "icon": "./assets/images/SAS.png",
-      "userInterfaceStyle": "automatic",
-      "splash": {
-        "image": "./assets/images/splash.png",
-        "resizeMode": "contain",
-        "backgroundColor": "#FFFFFF"
-      },
-      "assetBundlePatterns": [
-        "**/*"
-      ],
-      "ios": {
-        "infoPlist": {
-          "UIBackgroundModes": [
-            "location",
-            "fetch"
-          ],
-          "NSLocationWhenInUseUsageDescription": "This app needs access to location to provide navigation.",
-          "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs access to location to provide navigation even when in background.",
-          "NSLocationAlwaysUsageDescription": "This app needs access to location to provide navigation even when in background."
+        "name": "SAS Field Service Mobility",
+        "slug": "sas-fsm",
+        "version": "1.1.0",
+        "orientation": "portrait",
+        "icon": "./assets/images/SAS.png",
+        "userInterfaceStyle": "automatic",
+        "splash": {
+            "image": "./assets/images/splash.png",
+            "resizeMode": "contain",
+            "backgroundColor": "#FFFFFF"
         },
-        "config": {
-          "googleMapsApiKey": "AIzaSyAqKCJbvo1YUX4wKMXkpLYe0Bglfxxto_g"
+        "assetBundlePatterns": ["**/*"],
+        "ios": {
+            "infoPlist": {
+                "UIBackgroundModes": ["location", "fetch"],
+                "NSLocationWhenInUseUsageDescription": "This app needs access to location to provide navigation.",
+                "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs access to location to provide navigation even when in background.",
+                "NSLocationAlwaysUsageDescription": "This app needs access to location to provide navigation even when in background."
+            },
+            "config": {
+                "googleMapsApiKey": "AIzaSyAqKCJbvo1YUX4wKMXkpLYe0Bglfxxto_g"
+            },
+            "supportsTablet": true,
+            "bundleIdentifier": "com.sasfsm.sasfsm"
         },
-        "supportsTablet": true,
-        "bundleIdentifier": "com.sasfsm.sasfsm"
-      },
-      "android": {
-        "package": "com.sasfsm.sasfsm",
-        "versionCode": 1,
-        "googleServicesFile": "./google-services.json",
-        "permissions": [
-          "android.permission.ACCESS_COARSE_LOCATION",
-          "android.permission.ACCESS_FINE_LOCATION",
-          "android.permission.ACCESS_BACKGROUND_LOCATION",
-          "android.permission.RECORD_AUDIO",
-          "android.permission.INTERNET",
-          "android.permission.SYSTEM_ALERT_WINDOW",
-          "android.permission.WRITE_EXTERNAL_STORAGE"
+        "android": {
+            "package": "com.sasfsm.sasfsm",
+            "versionCode": 1,
+            "googleServicesFile": "./google-services.json",
+            "permissions": [
+                "android.permission.ACCESS_COARSE_LOCATION",
+                "android.permission.ACCESS_FINE_LOCATION",
+                "android.permission.ACCESS_BACKGROUND_LOCATION",
+                "android.permission.RECORD_AUDIO",
+                "android.permission.INTERNET",
+                "android.permission.SYSTEM_ALERT_WINDOW",
+                "android.permission.WRITE_EXTERNAL_STORAGE"
+            ],
+            "adaptiveIcon": {
+                "foregroundImage": "./assets/images/SAS.png",
+                "backgroundColor": "#FFFFFF"
+            },
+            "config": {
+                "googleMaps": {
+                    "apiKey": "AIzaSyAqKCJbvo1YUX4wKMXkpLYe0Bglfxxto_g"
+                }
+            }
+        },
+        "plugins": [
+            "expo-font",
+            [
+                "@react-native-firebase/app",
+                {
+                    "androidPackageName": "com.sasfsm.sasfsm",
+                    "firebaseAutoInitEnabled": true
+                }
+            ],
+            [
+                "@react-native-firebase/auth",
+                {
+                    "androidPackageName": "com.sasfsm.sasfsm"
+                }
+            ],
+            [
+                "expo-location",
+                {
+                    "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location."
+                }
+            ],
+            [
+                "expo-image-picker",
+                {
+                    "photosPermission": "The app accesses your photos to let you share them with your customers.",
+                    "cameraPermission": "The app accesses your camera to let you take photos of your work."
+                }
+            ]
         ],
-        "adaptiveIcon": {
-          "foregroundImage": "./assets/images/SAS.png",
-          "backgroundColor": "#FFFFFF"
-        },
-        "config": {
-          "googleMaps": {
-            "apiKey": "AIzaSyAqKCJbvo1YUX4wKMXkpLYe0Bglfxxto_g"
-          }
+        "extra": {
+            "eas": {
+                "projectId": "a4350ee2-baa5-40a7-a578-386ac8da2172"
+            },
+            "firebaseApiKey": "AIzaSyAN7o4-N5unSUCtU7amZKRA4TRV7WjJ01Y",
+            "firebaseAuthDomain": "sas-fsm.firebaseapp.com",
+            "firebaseProjectId": "sas-fsm",
+            "firebaseStorageBucket": "sas-fsm.appspot.com",
+            "firebaseSenderId": "653364522600",
+            "firebaseAppId": "1:653364522600:web:fc90ef9dedda2181a9d5dd",
+            "firebaseMeasurementId": "G-JX36QS06TM"
         }
-      },
-      "plugins": [
-      "expo-font",
-      [
-        "@react-native-firebase/app",
-        {
-          "androidPackageName": "com.sasfsm.sasfsm",
-          "firebaseAutoInitEnabled": true
-        }
-      ],
-      [
-        "@react-native-firebase/auth",
-        {
-          "androidPackageName": "com.sasfsm.sasfsm"
-        }
-      ],
-      [
-        "expo-location",
-        {
-          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location."
-        }
-      ],
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "The app accesses your photos to let you share them with your customers.",
-          "cameraPermission": "The app accesses your camera to let you take photos of your work."
-        }
-      ]
-    ],
-      "extra": {
-        "eas": {
-          "projectId": "a4350ee2-baa5-40a7-a578-386ac8da2172"
-        },
-        "firebaseApiKey": "AIzaSyAW_iSh3DN9oR4FvBgM7LTwPPISrYbkIKs",
-        "firebaseAuthDomain": "sas-test-a6b44.firebaseapp.com",
-        "firebaseProjectId": "sas-test-a6b44",
-        "firebaseStorageBucket": "sas-test-a6b44.appspot.com",
-        "firebaseSenderId": "1051094623911",
-        "firebaseAppId": "1:1051094623911:web:16bf180f2cf01f58275d82",
-        "firebaseMeasurementId": "G-RQCRDV5F67"
-      }
     }
-  }
+}
