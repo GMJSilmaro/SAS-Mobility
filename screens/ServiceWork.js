@@ -15,7 +15,7 @@ import {
 } from 'react-native'
 import Icon from 'react-native-vector-icons/MaterialIcons'
 import * as ImagePicker from 'expo-image-picker'
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
+import { doc, getDoc, setDoc, Timestamp, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 
 const ServiceWork = ({ navigation, route }) => {
@@ -228,6 +228,31 @@ const ServiceWork = ({ navigation, route }) => {
         fetchPhotos()
     }, [route?.params?.jobNo, route?.params?.workerId])
 
+    const workerStatusRef = doc(
+        db,
+        `jobs/${route.params.jobNo}/workerStatus/WS-${route.params.workerId}`
+    )
+
+    const handleCompleteService = async () => {
+        try {
+            // Update the Firestore document with technician notes
+            await updateDoc(workerStatusRef, {
+                notes: notes, // Saving the technician notes
+            })
+
+            // Proceed to the next step (navigate or update state)
+            setVisitedStages((prev) => [...new Set([...prev, 3])])
+
+            // Navigate to the Completion screen
+            navigation.navigate('Completion', {
+                jobNo: route?.params?.jobNo,
+                workerId: route?.params?.workerId,
+            })
+        } catch (error) {
+            console.error('Error saving technician notes: ', error)
+        }
+    }
+
     const handleStartWork = () => {
         Alert.alert(
             'Start Working',
@@ -265,6 +290,7 @@ const ServiceWork = ({ navigation, route }) => {
                                 setElapsedTime(elapsedSeconds)
                             }, 1000)
                             setTimerInterval(interval)
+                            changeWorkerStatus()
                         } else {
                             console.log(
                                 'Failed to add worker status, timer not started.'
@@ -274,6 +300,38 @@ const ServiceWork = ({ navigation, route }) => {
                 },
             ]
         )
+    }
+    const changeWorkerStatus = async () => {
+        const jobNo = route?.params?.jobNo
+        const workerId = route?.params?.workerId
+
+        try {
+            const docRef = doc(db, 'jobs', jobNo)
+            const docSnap = await getDoc(docRef)
+
+            if (docSnap.exists()) {
+                const jobData = docSnap.data()
+                const assignedWorkers = jobData.assignedWorkers.map(
+                    (worker) => {
+                        if (worker.workerId === workerId) {
+                            return { ...worker, overallStatus: 'In Progress' }
+                        }
+                        return worker
+                    }
+                )
+
+                await updateDoc(docRef, { assignedWorkers })
+
+                console.log('Worker status updated successfully.')
+                return true
+            } else {
+                console.error('Job document not found.')
+                return false
+            }
+        } catch (error) {
+            console.error('Error changing worker status:', error)
+            return false
+        }
     }
 
     // Function to add worker status as a subcollection
@@ -409,6 +467,7 @@ const ServiceWork = ({ navigation, route }) => {
             await updateDoc(workerStatusRef, {
                 breakDuration: `${breakTimeDuration / 1000} seconds`, // Convert to seconds
                 endTime: new Date(), // Current time for end time
+                jobClockOut: Timestamp.fromDate(new Date()), // Convert current date/time to Firestore Timestamp
                 endDate: new Date().toISOString(), // Current date for end date
                 jobDuration: `${totalJobDuration / 1000} seconds`,
                 completionTime: `${totalWorkingTime / 1000} seconds`,
@@ -904,13 +963,7 @@ const ServiceWork = ({ navigation, route }) => {
                         styles.disabledButton,
                 ]}
                 disabled={!allTasksCompleted || !timeTracking.endTime}
-                onPress={() => {
-                    setVisitedStages((prev) => [...new Set([...prev, 3])])
-                    navigation.navigate('Completion', {
-                        jobNo: route?.params?.jobNo,
-                        workerId: route?.params?.workerId,
-                    })
-                }}
+                onPress={handleCompleteService} // Use the handler
             >
                 <Text style={styles.completeButtonText}>
                     {!timeTracking.endTime

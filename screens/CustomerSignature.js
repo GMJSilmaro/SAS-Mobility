@@ -33,21 +33,13 @@ const JobCustomerSignature = ({ navigation, route }) => {
         const fetchCustomerSignature = async () => {
             try {
                 const currentDate = moment().format('MM-DD-YYYY')
-                const docRef = doc(
-                    db,
-                    'workerAttendance',
-                    workerId,
-                    currentDate,
-                    'workerStatus',
-                    jobNo,
-                    'JobStatus'
-                )
+                const docRef = doc(db, 'jobs', jobNo) // Firestore reference to the job
 
-                const docSnap = await getDoc(docRef)
+                const docSnap = await getDoc(docRef) // Fetch the document
                 if (docSnap.exists()) {
                     const data = docSnap.data()
                     if (data.customerSignature) {
-                        setSavedSignature(data.customerSignature)
+                        setSavedSignature(data.customerSignature) // Store the customerSignature data
                     }
                 } else {
                     console.log(
@@ -60,7 +52,7 @@ const JobCustomerSignature = ({ navigation, route }) => {
         }
 
         fetchCustomerSignature()
-    }, [jobNo, workerId])
+    }, [jobNo, workerId]) // Trigger on jobNo or workerId change
 
     const handleSignature = async (signature) => {
         setLoading(true)
@@ -159,17 +151,24 @@ const JobCustomerSignature = ({ navigation, route }) => {
                     <ActivityIndicator size="large" color={COLORS.primary} />
                 </View>
             )}
-            {savedSignature && !loading && (
-                <View style={styles.savedSignatureContainer}>
-                    <Text style={styles.savedSignatureTitle}>
-                        Saved Signature:
+            {savedSignature ? (
+                <View>
+                    {/* Display the customer signature */}
+                    <Text>Signed By: {savedSignature.signedBy}</Text>
+                    <Text>
+                        Signature Timestamp: {savedSignature.signatureTimestamp}
                     </Text>
                     <Image
-                        source={{ uri: savedSignature }}
-                        style={styles.savedSignatureImage}
-                        resizeMode="contain"
+                        source={{ uri: savedSignature.signatureURL }} // Display the signature image
+                        style={{
+                            width: 300,
+                            height: 150,
+                            resizeMode: 'contain',
+                        }} // Adjust the style
                     />
                 </View>
+            ) : (
+                <Text>No signature found for this job.</Text>
             )}
         </SafeAreaView>
     )

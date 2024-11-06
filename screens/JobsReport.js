@@ -51,6 +51,7 @@ const JobsReport = ({ navigation, route }) => {
         const workerReport = {
             issue: issueValue,
             additionalInfo,
+            dataIssued: new Date().toISOString(),
             rescheduled: rescheduledValue,
             rescheduledDate: dateSelected
                 ? format(rescheduledDate, 'yyyy-MM-dd')
