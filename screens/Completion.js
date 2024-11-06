@@ -242,10 +242,23 @@ const Completion = ({ navigation, route }) => {
             </ScrollView>
 
             <TouchableOpacity
-                style={styles.finishButton}
-                onPress={handleFinishJob}
+                style={[
+                    styles.finishButton,
+                    jobData?.jobStatus === 'Job Complete' &&
+                        styles.disabledButton,
+                ]}
+                onPress={
+                    jobData?.jobStatus === 'Job Complete'
+                        ? () => navigation.navigate('Home')
+                        : handleFinishJob
+                }
+                disabled={false}
             >
-                <Text style={styles.buttonText}>Finish Job</Text>
+                <Text style={styles.buttonText}>
+                    {jobData?.jobStatus === 'Job Complete'
+                        ? 'Go Back to Calendar'
+                        : 'Finish Job'}
+                </Text>
             </TouchableOpacity>
         </View>
     )
@@ -344,6 +357,9 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 18,
         fontWeight: '600',
+    },
+    disabledButton: {
+        backgroundColor: '#7BA5F3',
     },
     photo: {
         width: 100,
